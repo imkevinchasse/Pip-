@@ -1,0 +1,8 @@
+<resources>
+    <string name="app_name">Smol Oracle</string>
+    <string name="pet_name">Pip</string>
+    <string name="listening_status">Pip is listening…</string>
+    <string name="thinking_status">Pip brain is think…</string>
+    <string name="speaking_status">Pip is speak wisdom…</string>
+    <string name="idle_status">Pip is ready. Speak to Pip!</string>
+</resources>

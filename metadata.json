@@ -1,0 +1,6 @@
+{
+  "name": "Smol Oracle",
+  "description": "Local voice assistant running Whisper, SmolLM2-135M fractured wisdom, and helium pet Piper TTS.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
