@@ -22,6 +22,6 @@ dependencyResolutionManagement {
   }
 }
 
-rootProject.name = "Smol Oracle"
+rootProject.name = "Pip"
 
 include(":app")

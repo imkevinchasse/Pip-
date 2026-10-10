@@ -1,6 +1,6 @@
 {
-  "name": "Smol Oracle",
-  "description": "Local voice assistant running Whisper, SmolLM2-135M fractured wisdom, and helium pet Piper TTS.",
+  "name": "Pip",
+  "description": "A tiny AI companion that lives on your phone. Offline speech recognition, an on-device language model and an offline voice. No servers, no cloud.",
   "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+  "majorCapabilities": []
 }

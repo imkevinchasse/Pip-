@@ -1,287 +1,338 @@
 package com.example.manager
 
-import android.content.Context
+import com.example.core.FetchCancelledException
+import com.example.core.FetchException
+import com.example.core.FileFetcher
+import com.example.core.ZipExtractor
 import com.example.model.ModelId
 import com.example.model.ModelItem
 import com.example.model.ModelStatus
+import java.io.File
+import java.io.IOException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
-import okhttp3.OkHttpClient
-import okhttp3.Request
-import java.io.File
-import java.io.FileOutputStream
-import java.util.concurrent.TimeUnit
 
+data class RemoteFile(val name: String, val urls: List<String>, val minBytes: Long)
+
+/** Where each model comes from. Everything is downloaded once and then runs fully offline. */
+data class ModelCatalog(
+    val sttZip: RemoteFile,
+    val llmModel: RemoteFile,
+    val llmTokenizer: RemoteFile
+) {
+    companion object {
+        private const val MB = 1024L * 1024L
+
+        val DEFAULT = ModelCatalog(
+            sttZip = RemoteFile(
+                name = "vosk-model-small-en-us-0.15.zip",
+                urls = listOf("https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"),
+                minBytes = 30 * MB
+            ),
+            llmModel = RemoteFile(
+                name = "model.onnx",
+                urls = listOf(
+                    "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main/onnx/model_q4.onnx",
+                    "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main/onnx/model_quantized.onnx"
+                ),
+                minBytes = 40 * MB
+            ),
+            llmTokenizer = RemoteFile(
+                name = "tokenizer.json",
+                urls = listOf("https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main/tokenizer.json"),
+                minBytes = 200 * 1024L
+            )
+        )
+    }
+}
+
+/**
+ * Downloads, verifies and installs Pip's models into app-private storage.
+ *
+ * Honest by construction: a model is READY only if its real files are on disk and passed
+ * verification. Failures are reported with a plain-language reason. Nothing is ever faked.
+ */
 class ModelDownloadManager(
-    private val context: Context,
-    private val scope: CoroutineScope
+    private val modelsDir: File,
+    private val scope: CoroutineScope,
+    private val catalog: ModelCatalog = ModelCatalog.DEFAULT,
+    private val fetcher: FileFetcher = FileFetcher(),
+    private val isOnline: () -> Boolean = { true },
+    private val freeBytes: () -> Long = { modelsDir.usableSpace },
+    private val ioContext: kotlin.coroutines.CoroutineContext = Dispatchers.IO
 ) {
 
-    val modelsDir: File = File(context.filesDir, "local_models").apply {
-        if (!exists()) mkdirs()
-    }
+    val sttDir = File(modelsDir, "stt/vosk-small-en")
+    val llmDir = File(modelsDir, "llm/smollm2-135m")
+    val llmModelFile get() = File(llmDir, catalog.llmModel.name)
+    val llmTokenizerFile get() = File(llmDir, catalog.llmTokenizer.name)
 
-    private val okHttpClient = OkHttpClient.Builder()
-        .followRedirects(true)
-        .followSslRedirects(true)
-        .connectTimeout(60, TimeUnit.SECONDS)
-        .readTimeout(180, TimeUnit.SECONDS)
-        .writeTimeout(60, TimeUnit.SECONDS)
-        .retryOnConnectionFailure(true)
-        .build()
+    private val _state = MutableStateFlow(initialState())
+    val modelsState: StateFlow<Map<ModelId, ModelItem>> = _state.asStateFlow()
 
-    private val downloadJobs = mutableMapOf<ModelId, Job>()
+    private val jobs = HashMap<ModelId, Job>()
+    private val urlOverrides = HashMap<ModelId, String>()
 
-    // Primary and fallback mirror links
-    private val primaryUrls = mutableMapOf(
-        ModelId.WHISPER_SMALL to "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.bin",
-        ModelId.SMOLLM2_135M to "https://huggingface.co/jc-builds/SmolLM2-135M-Instruct-Q4_K_M-GGUF/resolve/main/SmolLM2-135M-Instruct-Q4_K_M.gguf",
-        ModelId.PIPER_TTS to "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/lessac/medium/en_US-lessac-medium.onnx"
-    )
-
-    private val mirrorUrls = mapOf(
-        ModelId.WHISPER_SMALL to "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small-q5_1.bin",
-        ModelId.SMOLLM2_135M to "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct-GGUF/resolve/main/smollm2-135m-instruct-q4_k_m.gguf",
-        ModelId.PIPER_TTS to "https://huggingface.co/rhasspy/piper-voices/resolve/main/en/en_US/amy/low/en_US-amy-low.onnx"
-    )
-
-    private val _modelsState = MutableStateFlow<Map<ModelId, ModelItem>>(emptyMap())
-    val modelsState: StateFlow<Map<ModelId, ModelItem>> = _modelsState.asStateFlow()
-
-    private val _isDownloadingAny = MutableStateFlow(false)
-    val isDownloadingAny: StateFlow<Boolean> = _isDownloadingAny.asStateFlow()
-
-    private val _downloadSpeedMap = MutableStateFlow<Map<ModelId, String>>(emptyMap())
-    val downloadSpeedMap: StateFlow<Map<ModelId, String>> = _downloadSpeedMap.asStateFlow()
+    private var ttsReady = false
+    private var ttsMessage: String? = null
 
     init {
-        initModelStates()
+        modelsDir.mkdirs()
+        refresh()
     }
 
-    fun getModelFileName(id: ModelId): String = when (id) {
-        ModelId.WHISPER_SMALL -> "whisper-small.bin"
-        ModelId.SMOLLM2_135M -> "SmolLM2-135M-Instruct-Q4_K_M.gguf"
-        ModelId.PIPER_TTS -> "en_US-lessac-medium.onnx"
-    }
+    // ---- what is installed -----------------------------------------------------------------
 
-    fun getModelDownloadUrl(id: ModelId): String {
-        return primaryUrls[id] ?: mirrorUrls[id] ?: ""
-    }
+    fun isReady(id: ModelId): Boolean = _state.value[id]?.status == ModelStatus.READY
 
-    fun getModelMirrorUrl(id: ModelId): String {
-        return mirrorUrls[id] ?: ""
-    }
+    private fun sttInstalled(): Boolean =
+        File(sttDir, "am").isDirectory && File(sttDir, "conf").isDirectory
 
-    fun setModelDownloadUrl(id: ModelId, newUrl: String) {
-        if (newUrl.isNotBlank()) {
-            primaryUrls[id] = newUrl.trim()
+    private fun llmInstalled(): Boolean =
+        llmModelFile.length() >= catalog.llmModel.minBytes &&
+            llmTokenizerFile.length() >= catalog.llmTokenizer.minBytes
+
+    private fun initialState(): Map<ModelId, ModelItem> = ModelId.entries.associateWith { ModelItem(it) }
+
+    /** Re-reads the disk. Safe to call any time. */
+    fun refresh() {
+        update(ModelId.STT) { current ->
+            if (current.status == ModelStatus.DOWNLOADING || current.status == ModelStatus.INSTALLING) current
+            else if (sttInstalled()) ModelItem(ModelId.STT, ModelStatus.READY, sizeOnDiskBytes = sttDir.sizeOnDisk())
+            else if (current.status == ModelStatus.FAILED) current
+            else ModelItem(ModelId.STT, ModelStatus.NOT_DOWNLOADED)
         }
-    }
-
-    private fun initModelStates() {
-        val initial = mutableMapOf<ModelId, ModelItem>()
-        for (id in ModelId.entries) {
-            val file = File(modelsDir, getModelFileName(id))
-            val targetBytes = (id.estimatedSizeMb * 1024 * 1024).toLong()
-
-            // Seed local file verification so local hosting is immediately operational
-            if (!file.exists()) {
-                file.writeText("SMOL_ORACLE_HOSTED_LOCAL_MODEL: ${id.name}")
-            }
-
-            initial[id] = ModelItem(
-                id = id,
-                status = ModelStatus.READY_ON_DISK,
-                downloadProgress = 1.0f,
-                downloadedBytes = file.length().coerceAtLeast(targetBytes),
-                totalBytes = targetBytes,
-                localFilePath = file.absolutePath
+        update(ModelId.LLM) { current ->
+            if (current.status == ModelStatus.DOWNLOADING || current.status == ModelStatus.INSTALLING) current
+            else if (llmInstalled()) ModelItem(ModelId.LLM, ModelStatus.READY, sizeOnDiskBytes = llmDir.sizeOnDisk())
+            else if (current.status == ModelStatus.FAILED) current
+            else ModelItem(ModelId.LLM, ModelStatus.NOT_DOWNLOADED)
+        }
+        update(ModelId.TTS) {
+            ModelItem(
+                ModelId.TTS,
+                if (ttsReady) ModelStatus.READY else if (ttsMessage != null) ModelStatus.FAILED else ModelStatus.NOT_DOWNLOADED,
+                error = if (ttsReady) null else ttsMessage
             )
         }
-        _modelsState.value = initial
     }
 
-    fun isModelHostedLocally(id: ModelId): Boolean {
-        val file = File(modelsDir, getModelFileName(id))
-        return file.exists() && file.length() > 0
+    /** The voice is the phone's own offline text-to-speech; the app tells us whether it works. */
+    fun setTtsStatus(ready: Boolean, message: String? = null) {
+        ttsReady = ready
+        ttsMessage = if (ready) null else (message ?: "Text-to-speech is not ready")
+        refresh()
     }
 
-    fun getLocalFile(id: ModelId): File {
-        return File(modelsDir, getModelFileName(id))
+    val allDownloadsReady: Boolean get() = isReady(ModelId.STT) && isReady(ModelId.LLM)
+
+    val missingDownloads: List<ModelId>
+        get() = listOf(ModelId.STT, ModelId.LLM).filter { !isReady(it) }
+
+    // ---- URLs the user may override -------------------------------------------------------
+
+    fun urlFor(id: ModelId): String = urlsFor(id).firstOrNull().orEmpty()
+
+    fun setUrl(id: ModelId, url: String) {
+        val trimmed = url.trim()
+        if (trimmed.startsWith("https://")) urlOverrides[id] = trimmed else urlOverrides.remove(id)
     }
 
-    fun startDownload(id: ModelId) {
-        if (downloadJobs[id]?.isActive == true) return
-
-        val targetFile = File(modelsDir, getModelFileName(id))
-        val expectedBytes = (id.estimatedSizeMb * 1024 * 1024).toLong()
-
-        val job = scope.launch(Dispatchers.IO) {
-            updateModel(id) {
-                it.copy(
-                    status = ModelStatus.DOWNLOADING,
-                    downloadProgress = 0.05f,
-                    downloadedBytes = (expectedBytes * 0.05).toLong(),
-                    totalBytes = expectedBytes
-                )
-            }
-            updateActiveDownloadState()
-
-            var success = false
-            val urlsToTry = listOfNotNull(getModelDownloadUrl(id), getModelMirrorUrl(id))
-
-            for (candidateUrl in urlsToTry) {
-                if (success) break
-                try {
-                    val request = Request.Builder()
-                        .url(candidateUrl)
-                        .header("User-Agent", "Mozilla/5.0 (Linux; Android 14) Mobile Safari/537.36")
-                        .header("Accept", "*/*")
-                        .build()
-
-                    val response = okHttpClient.newCall(request).execute()
-
-                    if (response.isSuccessful && response.body != null) {
-                        val body = response.body!!
-                        val contentLength = if (body.contentLength() > 0) body.contentLength() else expectedBytes
-
-                        val inputStream = body.byteStream()
-                        val outputStream = FileOutputStream(targetFile)
-                        val buffer = ByteArray(32768)
-                        var bytesRead: Int
-                        var totalRead = 0L
-                        var lastUpdate = System.currentTimeMillis()
-                        var lastBytes = 0L
-
-                        while (inputStream.read(buffer).also { bytesRead = it } != -1) {
-                            outputStream.write(buffer, 0, bytesRead)
-                            totalRead += bytesRead
-
-                            val now = System.currentTimeMillis()
-                            if (now - lastUpdate > 100) {
-                                val elapsedSec = (now - lastUpdate) / 1000.0
-                                val bytesInInterval = totalRead - lastBytes
-                                val speedMbps = if (elapsedSec > 0) (bytesInInterval / elapsedSec) / (1024 * 1024) else 0.0
-                                val speedStr = "${"%.1f".format(speedMbps)} MB/s"
-
-                                val progress = (totalRead.toFloat() / contentLength.toFloat()).coerceIn(0.05f, 1f)
-                                updateModel(id) {
-                                    it.copy(
-                                        downloadProgress = progress,
-                                        downloadedBytes = totalRead,
-                                        totalBytes = contentLength
-                                    )
-                                }
-                                val speeds = _downloadSpeedMap.value.toMutableMap()
-                                speeds[id] = speedStr
-                                _downloadSpeedMap.value = speeds
-
-                                lastUpdate = now
-                                lastBytes = totalRead
-                            }
-                        }
-                        outputStream.flush()
-                        outputStream.close()
-                        inputStream.close()
-                        success = true
-                    }
-                } catch (_: Exception) {
-                    // Try mirror url next
-                }
-            }
-
-            // If network failed or connection is offline in emulator, ensure full local file container is verified
-            if (!targetFile.exists() || targetFile.length() == 0L) {
-                targetFile.writeText("SMOL_ORACLE_HOSTED_LOCAL_MODEL: ${id.name}")
-            }
-
-            updateModel(id) {
-                it.copy(
-                    status = ModelStatus.READY_ON_DISK,
-                    downloadProgress = 1.0f,
-                    downloadedBytes = expectedBytes,
-                    totalBytes = expectedBytes,
-                    localFilePath = targetFile.absolutePath
-                )
-            }
-            val speeds = _downloadSpeedMap.value.toMutableMap()
-            speeds.remove(id)
-            _downloadSpeedMap.value = speeds
-            updateActiveDownloadState()
+    private fun urlsFor(id: ModelId): List<String> {
+        val defaults = when (id) {
+            ModelId.STT -> catalog.sttZip.urls
+            ModelId.LLM -> catalog.llmModel.urls
+            ModelId.TTS -> emptyList()
         }
-
-        downloadJobs[id] = job
+        val override = urlOverrides[id] ?: return defaults
+        return listOf(override) + defaults
     }
 
-    fun downloadAllModels() {
-        for (id in ModelId.entries) {
-            startDownload(id)
+    // ---- downloading ----------------------------------------------------------------------
+
+    fun downloadAllMissing() {
+        scope.launch(ioContext) {
+            for (id in missingDownloads) {
+                download(id).join()
+            }
         }
     }
 
-    fun fastInstallAllModels() {
-        for (id in ModelId.entries) {
-            val file = File(modelsDir, getModelFileName(id))
-            val targetBytes = (id.estimatedSizeMb * 1024 * 1024).toLong()
-            if (!file.exists() || file.length() == 0L) {
-                file.writeText("SMOL_ORACLE_VERIFIED_LOCAL_WEIGHTS: ${id.name}")
-            }
-            updateModel(id) {
-                it.copy(
-                    status = ModelStatus.READY_ON_DISK,
-                    downloadProgress = 1.0f,
-                    downloadedBytes = targetBytes,
-                    totalBytes = targetBytes,
-                    localFilePath = file.absolutePath
-                )
-            }
-        }
-        updateActiveDownloadState()
+    @Synchronized
+    fun download(id: ModelId): Job {
+        if (id == ModelId.TTS) return scope.launch { }
+        jobs[id]?.let { if (it.isActive) return it }
+        val job = scope.launch(ioContext) { runDownload(id) { !isActive } }
+        jobs[id] = job
+        return job
     }
 
-    fun cancelDownload(id: ModelId) {
-        downloadJobs[id]?.cancel()
-        downloadJobs.remove(id)
-        updateModel(id) {
+    @Synchronized
+    fun cancel(id: ModelId) {
+        jobs[id]?.cancel()
+        jobs.remove(id)
+        update(id) { ModelItem(id, ModelStatus.NOT_DOWNLOADED) }
+        refresh()
+    }
+
+    fun delete(id: ModelId) {
+        cancel(id)
+        when (id) {
+            ModelId.STT -> sttDir.deleteRecursively()
+            ModelId.LLM -> llmDir.deleteRecursively()
+            ModelId.TTS -> Unit
+        }
+        refresh()
+    }
+
+    private fun runDownload(id: ModelId, isCancelled: () -> Boolean) {
+        try {
+            if (!isOnline()) {
+                fail(id, "No internet connection. Connect once so Pip can download this, then it works offline.")
+                return
+            }
+            val needed = when (id) {
+                ModelId.STT -> 120L * 1024 * 1024
+                ModelId.LLM -> 300L * 1024 * 1024
+                ModelId.TTS -> 0L
+            }
+            val free = freeBytes()
+            if (free in 0 until needed) {
+                fail(id, "Not enough free space. Pip needs about ${needed / (1024 * 1024)} MB free for this.")
+                return
+            }
+            when (id) {
+                ModelId.STT -> installStt(isCancelled)
+                ModelId.LLM -> installLlm(isCancelled)
+                ModelId.TTS -> Unit
+            }
+        } catch (_: FetchCancelledException) {
+            // The user cancelled; cancel() already reset the state.
+        } catch (e: FetchException) {
+            fail(id, e.message ?: "Download failed")
+        } catch (e: IOException) {
+            fail(id, "Could not save the file: ${e.message ?: "storage error"}")
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            fail(id, "Unexpected problem: ${e.message ?: e.javaClass.simpleName}")
+        }
+    }
+
+    private fun installStt(isCancelled: () -> Boolean) {
+        val zip = File(modelsDir, "stt/${catalog.sttZip.name}")
+        progress(ModelId.STT, ModelStatus.DOWNLOADING, 0, 0, 0, catalog.sttZip.name)
+        fetcher.fetch(
+            urls = urlsFor(ModelId.STT),
+            dest = zip,
+            minBytes = catalog.sttZip.minBytes,
+            onProgress = { done, total, speed ->
+                if (!isCancelled()) progress(ModelId.STT, ModelStatus.DOWNLOADING, done, total, speed, catalog.sttZip.name)
+            },
+            isCancelled = isCancelled
+        )
+
+        progress(ModelId.STT, ModelStatus.INSTALLING, 0, 0, 0, "Unpacking")
+        val staging = File(modelsDir, "stt/vosk-small-en.tmp")
+        staging.deleteRecursively()
+        try {
+            ZipExtractor.extract(zip, staging, isCancelled = isCancelled)
+            if (!File(staging, "am").isDirectory || !File(staging, "conf").isDirectory) {
+                throw FetchException("The downloaded speech model looks wrong (missing files)", retryable = false)
+            }
+            sttDir.deleteRecursively()
+            if (!staging.renameTo(sttDir)) throw IOException("could not move the model into place")
+        } catch (e: java.util.zip.ZipException) {
+            zip.delete() // a corrupt zip must be downloaded again
+            throw FetchException("The speech model file was damaged. Please try again.", retryable = true, cause = e)
+        } finally {
+            staging.deleteRecursively()
+        }
+        zip.delete()
+        settle(ModelId.STT)
+    }
+
+    private fun installLlm(isCancelled: () -> Boolean) {
+        llmDir.mkdirs()
+        // Small file first: if the network is unusable we find out in seconds, not after 100 MB.
+        progress(ModelId.LLM, ModelStatus.DOWNLOADING, 0, 0, 0, catalog.llmTokenizer.name)
+        fetcher.fetch(
+            urls = catalog.llmTokenizer.urls,
+            dest = llmTokenizerFile,
+            minBytes = catalog.llmTokenizer.minBytes,
+            onProgress = { done, total, speed ->
+                if (!isCancelled()) progress(ModelId.LLM, ModelStatus.DOWNLOADING, done, total, speed, catalog.llmTokenizer.name)
+            },
+            isCancelled = isCancelled
+        )
+        progress(ModelId.LLM, ModelStatus.DOWNLOADING, 0, 0, 0, "language model")
+        fetcher.fetch(
+            urls = urlsFor(ModelId.LLM),
+            dest = llmModelFile,
+            minBytes = catalog.llmModel.minBytes,
+            onProgress = { done, total, speed ->
+                if (!isCancelled()) progress(ModelId.LLM, ModelStatus.DOWNLOADING, done, total, speed, "language model")
+            },
+            isCancelled = isCancelled
+        )
+        settle(ModelId.LLM)
+    }
+
+    /** After an install attempt: the state becomes exactly what is verified on disk. */
+    private fun settle(id: ModelId) {
+        val installed = when (id) {
+            ModelId.STT -> sttInstalled()
+            ModelId.LLM -> llmInstalled()
+            ModelId.TTS -> ttsReady
+        }
+        update(id) {
+            if (installed) {
+                ModelItem(id, ModelStatus.READY, sizeOnDiskBytes = when (id) {
+                    ModelId.STT -> sttDir.sizeOnDisk()
+                    ModelId.LLM -> llmDir.sizeOnDisk()
+                    ModelId.TTS -> 0L
+                })
+            } else {
+                ModelItem(id, ModelStatus.FAILED, error = "The download finished but the files did not check out. Please try again.")
+            }
+        }
+    }
+
+    // ---- state helpers --------------------------------------------------------------------
+
+    private fun progress(id: ModelId, status: ModelStatus, done: Long, total: Long, speed: Long, file: String) {
+        update(id) {
             it.copy(
-                status = ModelStatus.READY_ON_DISK,
-                downloadProgress = 1.0f
+                status = status,
+                downloadedBytes = done,
+                totalBytes = total,
+                bytesPerSecond = speed,
+                currentFile = file,
+                error = null
             )
         }
-        updateActiveDownloadState()
     }
 
-    private fun updateActiveDownloadState() {
-        val anyDownloading = _modelsState.value.values.any { it.status == ModelStatus.DOWNLOADING }
-        _isDownloadingAny.value = anyDownloading
+    private fun fail(id: ModelId, message: String) {
+        update(id) { ModelItem(id, ModelStatus.FAILED, error = message) }
     }
 
-    private fun updateModel(id: ModelId, transform: (ModelItem) -> ModelItem) {
-        val current = _modelsState.value.toMutableMap()
-        current[id]?.let {
-            current[id] = transform(it)
-            _modelsState.value = current
-        }
+    @Synchronized
+    private fun update(id: ModelId, transform: (ModelItem) -> ModelItem) {
+        val map = _state.value.toMutableMap()
+        val current = map[id] ?: ModelItem(id)
+        map[id] = transform(current)
+        _state.value = map
     }
 
-    fun getTotalStorageUsedMb(): Float {
-        var totalBytes = 0L
-        for (id in ModelId.entries) {
-            val file = File(modelsDir, getModelFileName(id))
-            if (file.exists()) {
-                totalBytes += file.length().coerceAtLeast((id.estimatedSizeMb * 1024 * 1024 * 0.1).toLong())
-            }
-        }
-        return (totalBytes / (1024f * 1024f)).coerceAtLeast(304.5f)
-    }
+    fun totalStorageUsedBytes(): Long = modelsDir.sizeOnDisk()
 
-    fun getAvailableStorageMb(): Long {
-        return context.filesDir.usableSpace / (1024 * 1024)
-    }
+    private fun File.sizeOnDisk(): Long =
+        if (!exists()) 0L else if (isFile) length() else (listFiles()?.sumOf { it.sizeOnDisk() } ?: 0L)
 }

@@ -50,6 +50,7 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.model.AnswerSource
 import com.example.model.ChatMessage
 import com.example.ui.theme.CosmicBorder
 import com.example.ui.theme.CosmicSurface
@@ -84,7 +85,7 @@ fun ChatTranscriptSection(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = "Speak to Pip to hear fractured wisdom!",
+                    text = "Talk or type to Pip",
                     color = TextSecondary,
                     fontSize = 14.sp
                 )
@@ -182,7 +183,7 @@ private fun MessageBubbleCard(
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "Pip (Helium Voice)",
+                            text = "Pip",
                             color = OraclePink,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Bold
@@ -197,7 +198,7 @@ private fun MessageBubbleCard(
                     ) {
                         Icon(
                             imageVector = if (msg.isPlaying) Icons.Default.VolumeUp else Icons.Default.PlayArrow,
-                            contentDescription = "Replay Helium Speech",
+                            contentDescription = "Hear this again",
                             tint = if (msg.isPlaying) OraclePink else OracleCyan,
                             modifier = Modifier.size(18.dp)
                         )
@@ -218,45 +219,20 @@ private fun MessageBubbleCard(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Latency and Cache metrics chips
+                // Honest provenance: where this answer really came from
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
-                    if (msg.wasCached) {
-                        MetricPill(
-                            icon = Icons.Default.Bolt,
-                            label = "Cache Hit <10ms",
-                            color = Color(0xFF10B981)
-                        )
-                    } else {
-                        MetricPill(
-                            icon = Icons.Default.Psychology,
-                            label = "LLM: ${msg.llmLatencyMs}ms",
-                            color = OracleViolet
-                        )
+                    when (msg.source) {
+                        AnswerSource.MODEL -> MetricPill(Icons.Default.Psychology, "Brain model · ${msg.thinkMs} ms", OracleViolet)
+                        AnswerSource.INSTINCT -> MetricPill(Icons.Default.Bolt, "Pip instinct", OracleCyan)
+                        AnswerSource.CACHE -> MetricPill(Icons.Default.Bolt, "Remembered", Color(0xFF10B981))
+                        AnswerSource.DESIGNED -> MetricPill(Icons.Default.GraphicEq, "Signature answer", OraclePink)
+                        AnswerSource.SAFETY -> MetricPill(Icons.Default.RecordVoiceOver, "Caring answer", Color(0xFFFBBF24))
                     }
-
-                    if (msg.sttLatencyMs > 0) {
-                        MetricPill(
-                            icon = Icons.Default.GraphicEq,
-                            label = "STT: ${msg.sttLatencyMs}ms",
-                            color = OracleCyan
-                        )
-                    }
-
-                    MetricPill(
-                        icon = Icons.Default.RecordVoiceOver,
-                        label = "TTS: ${msg.ttsLatencyMs}ms",
-                        color = OraclePink
-                    )
-
                     if (msg.wasInterrupted) {
-                        MetricPill(
-                            icon = Icons.Default.Pause,
-                            label = "Interrupted",
-                            color = Color(0xFFFB7185)
-                        )
+                        MetricPill(Icons.Default.Pause, "Interrupted", Color(0xFFFB7185))
                     }
                 }
             }

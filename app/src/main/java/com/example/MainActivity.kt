@@ -8,6 +8,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,14 +27,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.Hearing
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Memory
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
@@ -49,6 +51,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.core.ByteFormat
+import com.example.model.ModelId
+import com.example.model.ModelItem
+import com.example.model.ModelStatus
 import com.example.model.PipelineStage
 import com.example.ui.PetOracleViewModel
 import com.example.ui.components.AudioWaveformVisualizer
@@ -83,309 +89,264 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun MainScreen(viewModel: PetOracleViewModel) {
     val messages by viewModel.messages.collectAsStateWithLifecycle()
-    val pipelineStage by viewModel.memoryOrchestrator.currentStage.collectAsStateWithLifecycle()
-    val ramMb by viewModel.memoryOrchestrator.estimatedRamUsageMb.collectAsStateWithLifecycle()
-    val activePhaseDesc by viewModel.memoryOrchestrator.activePhaseDescription.collectAsStateWithLifecycle()
-    val isDynamicListening by viewModel.whisperSttEngine.isDynamicListeningEnabled.collectAsStateWithLifecycle()
-    val liveAmplitude by viewModel.liveVisualizerAmplitude.collectAsStateWithLifecycle()
-    val showModelSheet by viewModel.showModelSheet.collectAsStateWithLifecycle()
-    val modelsState by viewModel.downloadManager.modelsState.collectAsStateWithLifecycle()
-    val isOwnerOnlyMode by viewModel.whisperSttEngine.isOwnerOnlyMode.collectAsStateWithLifecycle()
-    val voiceMatchStatus by viewModel.whisperSttEngine.voiceMatchStatus.collectAsStateWithLifecycle()
-    val isEnrollingVoice by viewModel.whisperSttEngine.isEnrollingVoice.collectAsStateWithLifecycle()
-    val voicePrint by viewModel.whisperSttEngine.voicePrint.collectAsStateWithLifecycle()
+    val stage by viewModel.stage.collectAsStateWithLifecycle()
+    val ramMb by viewModel.ramMb.collectAsStateWithLifecycle()
+    val wantListening by viewModel.wantListening.collectAsStateWithLifecycle()
+    val amplitude by viewModel.liveAmplitude.collectAsStateWithLifecycle()
+    val showSheet by viewModel.showModelSheet.collectAsStateWithLifecycle()
+    val models by viewModel.modelsState.collectAsStateWithLifecycle()
+    val notice by viewModel.notice.collectAsStateWithLifecycle()
+    val partial by viewModel.partialText.collectAsStateWithLifecycle()
+    val loadingEars by viewModel.isLoadingEars.collectAsStateWithLifecycle()
+    val pitch by viewModel.voicePitch.collectAsStateWithLifecycle()
+    val rate by viewModel.voiceRate.collectAsStateWithLifecycle()
 
-    // Record Audio Permission launcher
     val permissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            viewModel.setDynamicListening(true)
+    ) { viewModel.onPermissionResult() }
+
+    // Ask for the microphone once at start (the setup card explains why Pip needs it).
+    LaunchedEffect(Unit) {
+        if (!viewModel.ears.hasPermission()) {
+            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        } else {
+            viewModel.onPermissionResult()
         }
     }
 
-    LaunchedEffect(Unit) {
-        if (viewModel.whisperSttEngine.hasRecordPermission()) {
-            viewModel.setDynamicListening(true)
-        } else {
-            permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-        }
-    }
+    val listening = wantListening && viewModel.ears.hasPermission() && models[ModelId.STT]?.status == ModelStatus.READY
 
     Scaffold(
-        modifier = Modifier
-            .fillMaxSize()
-            .testTag("main_scaffold"),
+        modifier = Modifier.fillMaxSize().testTag("main_scaffold"),
         containerColor = CosmicDeepBg,
         bottomBar = {
             DynamicListenControlBar(
-                isDynamicListening = isDynamicListening,
-                pipelineStage = pipelineStage,
-                onToggleDynamicListen = { enabled ->
-                    if (enabled && !viewModel.whisperSttEngine.hasRecordPermission()) {
+                isDynamicListening = listening,
+                pipelineStage = stage,
+                onToggleDynamicListen = {
+                    if (!viewModel.ears.hasPermission()) {
                         permissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
                     } else {
-                        viewModel.setDynamicListening(enabled)
+                        viewModel.toggleListening()
                     }
                 },
-                onSubmitQuery = { query ->
-                    viewModel.processUserQuery(query, isSpoken = false)
-                },
-                onInterrupt = {
-                    viewModel.handleUserInterruption()
-                },
-                onOpenModelManager = {
-                    viewModel.toggleModelSheet(true)
-                }
+                onSubmitQuery = { viewModel.ask(it) },
+                onInterrupt = { viewModel.interrupt() },
+                onOpenModelManager = { viewModel.toggleModelSheet(true) }
             )
         }
     ) { innerPadding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(innerPadding)
-                .statusBarsPadding()
+            modifier = Modifier.fillMaxSize().padding(innerPadding).statusBarsPadding()
         ) {
-            // Top App Bar: Brand + RAM metric pill + Model manager icon
-            TopCosmicHeader(
-                currentRamMb = ramMb,
-                onOpenModelManager = { viewModel.toggleModelSheet(true) }
-            )
+            Header(ramMb = ramMb, onOpenSheet = { viewModel.toggleModelSheet(true) })
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Speaker Learning & Owner Voice Match bar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Surface(
-                    color = if (isOwnerOnlyMode) Color(0xFF132D24) else Color(0xFF1F1836),
-                    shape = RoundedCornerShape(12.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, if (isOwnerOnlyMode) Color(0xFF10B981) else CosmicBorder),
-                    modifier = Modifier.clickable { viewModel.toggleOwnerVoiceOnly(!isOwnerOnlyMode) }
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = if (isOwnerOnlyMode) Icons.Default.Person else Icons.Default.Group,
-                            contentDescription = null,
-                            tint = if (isOwnerOnlyMode) Color(0xFF10B981) else OracleCyan,
-                            modifier = Modifier.size(13.dp)
-                        )
-                        Spacer(modifier = Modifier.width(5.dp))
-                        Text(
-                            text = if (isOwnerOnlyMode) "Owner Voice Only" else "Mode: All Voices",
-                            color = if (isOwnerOnlyMode) Color(0xFF10B981) else Color(0xFFE2E8F0),
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                }
-
-                OutlinedButton(
-                    onClick = { viewModel.enrollUserVoice() },
-                    shape = RoundedCornerShape(12.dp),
-                    modifier = Modifier.height(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Hearing,
-                        contentDescription = null,
-                        tint = if (voicePrint.isEnrolled) Color(0xFF10B981) else OracleViolet,
-                        modifier = Modifier.size(12.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = if (isEnrollingVoice) "Listening…" else if (voicePrint.isEnrolled) "Voice Learned ✓" else "Learn My Voice",
-                        color = if (voicePrint.isEnrolled) Color(0xFF10B981) else OracleViolet,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Center Mascot & Reactive Aura (Big when listening, Small when processing)
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 2.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                MascotPip(
-                    stage = pipelineStage,
-                    amplitude = liveAmplitude,
-                    onHeadClick = { viewModel.onMascotHeadClick() }
+            val missing = listOf(ModelId.STT, ModelId.LLM).filter { models[it]?.status != ModelStatus.READY }
+            if (missing.isNotEmpty()) {
+                SetupCard(
+                    models = models,
+                    onDownload = { viewModel.downloadAll() },
+                    onCancel = { missing.forEach { viewModel.cancelDownload(it) } }
                 )
             }
 
-            // Real-time Audio Waveform Visualizer
+            notice?.let { NoticeBar(it) }
+
+            Box(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                MascotPip(stage = stage, amplitude = amplitude, onHeadClick = { viewModel.onMascotTap() })
+            }
+
             AudioWaveformVisualizer(
-                stage = pipelineStage,
-                amplitude = liveAmplitude,
+                stage = stage,
+                amplitude = amplitude,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 2.dp)
             )
 
-            // Dynamic Listening Status Label
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp, vertical = 2.dp),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                val statusDotColor = when (pipelineStage) {
-                    PipelineStage.LISTENING -> OracleCyan
-                    PipelineStage.THINKING -> OracleViolet
-                    PipelineStage.SPEAKING -> OraclePink
-                    PipelineStage.INTERRUPTED -> Color(0xFFFB7185)
-                    PipelineStage.IDLE -> TextSecondary
-                }
+            StatusLine(stage = stage, listening = listening, loadingEars = loadingEars, partial = partial)
 
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(statusDotColor, CircleShape)
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = when (pipelineStage) {
-                        PipelineStage.LISTENING -> "Dynamic Listening active • Whisper listening"
-                        PipelineStage.THINKING -> "SmolLM2-135M thinking fractured wisdom…"
-                        PipelineStage.SPEAKING -> "Piper TTS speaking helium pet voice"
-                        PipelineStage.INTERRUPTED -> "Cut-in detected • Swift memory flush"
-                        PipelineStage.IDLE -> "Standby • Tap mic or speak to Pip"
-                    },
-                    color = TextSecondary,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
+            Spacer(Modifier.height(4.dp))
 
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // Conversational Transcript & Answers Feed
             ChatTranscriptSection(
                 messages = messages,
-                onReplayAudio = { msg ->
-                    viewModel.replayAudio(msg)
-                },
+                onReplayAudio = { viewModel.replay(it) },
                 modifier = Modifier.weight(1f)
             )
         }
     }
 
-    // Modal Bottom Sheet for Tri-Model & Phased Memory Management
-    if (showModelSheet) {
+    if (showSheet) {
         ModelManagerSheet(
-            downloadManager = viewModel.downloadManager,
-            modelsState = modelsState,
-            memoryOrchestrator = viewModel.memoryOrchestrator,
-            localServer = viewModel.localServer,
-            currentRamMb = ramMb,
-            activePhaseDescription = activePhaseDesc,
-            cache = viewModel.cache,
-            heliumPitch = viewModel.piperAudioEngine.pitchFactor,
-            speechRate = viewModel.piperAudioEngine.speechRate,
-            volumeLevel = viewModel.piperAudioEngine.volumeLevel,
-            pitchVariance = viewModel.piperAudioEngine.pitchVariance,
-            formantShift = viewModel.piperAudioEngine.formantShift,
-            phonemeLength = viewModel.piperAudioEngine.phonemeLengthScale,
-            onPitchChange = { viewModel.setHeliumPitch(it) },
-            onRateChange = { viewModel.setSpeechSpeed(it) },
-            onVolumeChange = { viewModel.setVolumeLevel(it) },
-            onVarianceChange = { viewModel.setPitchVariance(it) },
-            onFormantChange = { viewModel.setFormantShift(it) },
-            onPhonemeLengthChange = { viewModel.setPhonemeLength(it) },
-            onSelectProfile = { viewModel.applyVoiceProfile(it) },
-            onTestHeliumVoice = {
-                viewModel.piperAudioEngine.speak("Pip voice is helium pet squeak! Very light, much cute!")
-            },
-            onRestartServer = { viewModel.restartLocalServer() },
-            onUpdateModelUrl = { id, url -> viewModel.updateModelUrl(id, url) },
-            onFastInstallAll = { viewModel.fastInstallAllModels() },
+            models = models,
+            ramMb = ramMb,
+            cacheEntries = viewModel.cache.size(),
+            pitch = pitch,
+            rate = rate,
+            urlFor = { viewModel.downloads.urlFor(it) },
+            onDownload = { viewModel.download(it) },
+            onCancel = { viewModel.cancelDownload(it) },
+            onDelete = { viewModel.deleteModel(it) },
+            onUrlChange = { id, url -> viewModel.updateModelUrl(id, url) },
+            onProfile = { viewModel.applyVoiceProfile(it) },
+            onPitch = { viewModel.setPitch(it) },
+            onRate = { viewModel.setRate(it) },
+            onTestVoice = { viewModel.testVoice() },
+            onClearMemory = { viewModel.clearMemory() },
             onDismiss = { viewModel.toggleModelSheet(false) }
         )
     }
 }
 
 @Composable
-private fun TopCosmicHeader(
-    currentRamMb: Float,
-    onOpenModelManager: () -> Unit
-) {
+private fun Header(ramMb: Float, onOpenSheet: () -> Unit) {
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 6.dp),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column {
-            Text(
-                text = "Pip Oracle",
-                color = TextPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.ExtraBold
-            )
-            Text(
-                text = "Whisper • SmolLM2-135M • Piper Helium",
-                color = OracleViolet,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
+            Text("Pip", color = TextPrimary, fontSize = 22.sp, fontWeight = FontWeight.ExtraBold)
+            Text("Lives on this phone. No cloud.", color = OracleViolet, fontSize = 11.sp, fontWeight = FontWeight.Medium)
         }
-
         Row(verticalAlignment = Alignment.CenterVertically) {
-            // Live Phased RAM Indicator
             Surface(
                 color = Color(0xFF1E1538),
                 shape = RoundedCornerShape(16.dp),
-                border = androidx.compose.foundation.BorderStroke(1.dp, CosmicBorder),
-                modifier = Modifier.clickable { onOpenModelManager() }
+                border = BorderStroke(1.dp, CosmicBorder),
+                modifier = Modifier.clickable { onOpenSheet() }
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Memory,
-                        contentDescription = null,
-                        tint = OracleCyan,
-                        modifier = Modifier.size(13.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = "${"%.0f".format(currentRamMb)} MB RAM",
-                        color = OracleCyan,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                Row(Modifier.padding(horizontal = 10.dp, vertical = 5.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.Memory, null, tint = OracleCyan, modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(4.dp))
+                    Text("${"%.0f".format(ramMb)} MB", color = OracleCyan, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                 }
             }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
+            Spacer(Modifier.width(8.dp))
             IconButton(
-                onClick = onOpenModelManager,
-                modifier = Modifier
-                    .size(36.dp)
-                    .background(Color(0xFF1E1538), CircleShape)
-                    .border(1.dp, CosmicBorder, CircleShape)
+                onClick = onOpenSheet,
+                modifier = Modifier.size(36.dp).background(Color(0xFF1E1538), CircleShape).border(1.dp, CosmicBorder, CircleShape)
             ) {
-                Icon(
-                    imageVector = Icons.Default.Tune,
-                    contentDescription = "Model Config",
-                    tint = TextPrimary,
-                    modifier = Modifier.size(17.dp)
-                )
+                Icon(Icons.Default.Tune, "Pip's brains and voice", tint = TextPrimary, modifier = Modifier.size(17.dp))
             }
         }
+    }
+}
+
+@Composable
+private fun SetupCard(models: Map<ModelId, ModelItem>, onDownload: () -> Unit, onCancel: () -> Unit) {
+    val stt = models[ModelId.STT]
+    val llm = models[ModelId.LLM]
+    val active = listOfNotNull(stt, llm).firstOrNull {
+        it.status == ModelStatus.DOWNLOADING || it.status == ModelStatus.INSTALLING
+    }
+    val failed = listOfNotNull(stt, llm).firstOrNull { it.status == ModelStatus.FAILED }
+
+    Surface(
+        color = Color(0xFF1E143B),
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, if (failed != null && active == null) Color(0xFFFB7185) else OracleViolet.copy(alpha = 0.6f)),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).testTag("setup_card")
+    ) {
+        Column(Modifier.padding(14.dp)) {
+            Text("Pip needs to learn to hear and think", color = TextPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                "One-time download of about 150 to 250 MB (best on Wi-Fi). After that Pip works with no internet at all, " +
+                    "and nothing you say ever leaves the phone. Typing to Pip already works.",
+                color = TextSecondary, fontSize = 12.sp, lineHeight = 16.sp
+            )
+            Spacer(Modifier.height(10.dp))
+
+            if (active != null) {
+                if (active.status == ModelStatus.DOWNLOADING && active.totalBytes > 0) {
+                    LinearProgressIndicator(
+                        progress = { active.progress },
+                        modifier = Modifier.fillMaxWidth().height(5.dp),
+                        color = OracleCyan, trackColor = Color(0xFF2E224D)
+                    )
+                } else {
+                    LinearProgressIndicator(
+                        modifier = Modifier.fillMaxWidth().height(5.dp),
+                        color = OracleCyan, trackColor = Color(0xFF2E224D)
+                    )
+                }
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    buildString {
+                        append(if (active.id == ModelId.STT) "Ears" else "Brain")
+                        append(": ")
+                        append(active.currentFile)
+                        if (active.totalBytes > 0) append("  ${ByteFormat.human(active.downloadedBytes)} of ${ByteFormat.human(active.totalBytes)}")
+                        val s = ByteFormat.speed(active.bytesPerSecond)
+                        if (s.isNotEmpty()) append("  ·  $s")
+                    },
+                    color = OracleCyan, fontSize = 11.sp
+                )
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(onClick = onCancel, shape = RoundedCornerShape(10.dp), modifier = Modifier.height(34.dp)) {
+                    Text("Cancel", fontSize = 12.sp)
+                }
+            } else {
+                failed?.error?.let {
+                    Text(it, color = Color(0xFFFB7185), fontSize = 12.sp, lineHeight = 16.sp, modifier = Modifier.testTag("setup_error"))
+                    Spacer(Modifier.height(8.dp))
+                }
+                Button(
+                    onClick = onDownload,
+                    colors = ButtonDefaults.buttonColors(containerColor = OracleViolet, contentColor = Color(0xFF0F0B1E)),
+                    shape = RoundedCornerShape(12.dp),
+                    modifier = Modifier.height(38.dp).testTag("download_all_button")
+                ) {
+                    Icon(Icons.Default.Download, null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (failed != null) "Try again" else "Download Pip's brain", fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoticeBar(text: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+            .background(Color(0xFF3A1626), RoundedCornerShape(10.dp)).padding(10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(Icons.Default.Warning, null, tint = Color(0xFFFB7185), modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text(text, color = Color(0xFFFFE4E6), fontSize = 12.sp, modifier = Modifier.testTag("notice_text"))
+    }
+}
+
+@Composable
+private fun StatusLine(stage: PipelineStage, listening: Boolean, loadingEars: Boolean, partial: String) {
+    val dot = when (stage) {
+        PipelineStage.LISTENING -> OracleCyan
+        PipelineStage.THINKING -> OracleViolet
+        PipelineStage.SPEAKING -> OraclePink
+        PipelineStage.INTERRUPTED -> Color(0xFFFB7185)
+        PipelineStage.IDLE -> TextSecondary
+    }
+    val text = when {
+        loadingEars -> "Pip is waking up its ears…"
+        stage == PipelineStage.LISTENING && partial.isNotBlank() -> "“$partial”"
+        stage == PipelineStage.LISTENING -> "Listening… just talk to Pip"
+        stage == PipelineStage.THINKING -> "Pip is thinking…"
+        stage == PipelineStage.SPEAKING -> "Pip is talking (tap Pip to hush)"
+        stage == PipelineStage.INTERRUPTED -> "Hush. Pip stops."
+        listening -> "Ready"
+        else -> "Mic is off. Tap the mic or type to Pip"
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 2.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(Modifier.size(8.dp).background(dot, CircleShape))
+        Spacer(Modifier.width(6.dp))
+        Text(text, color = TextSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 2, modifier = Modifier.testTag("status_text"))
     }
 }

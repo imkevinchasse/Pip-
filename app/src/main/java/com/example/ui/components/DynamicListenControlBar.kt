@@ -86,13 +86,11 @@ fun DynamicListenControlBar(
     val focusManager = LocalFocusManager.current
 
     val presetChips = listOf(
-        "Is life difficult?",
-        "should I put my savings into a memecoin",
-        "who am I",
-        "what is happiness",
-        "will I succeed",
-        "why do we sleep",
-        "should I text them"
+        "Why is life hard?",
+        "Should I put my savings in a meme coin?",
+        "I've never gone skydiving. Should I?",
+        "Who are you?",
+        "What is love?"
     )
 
     Column(
@@ -161,7 +159,7 @@ fun DynamicListenControlBar(
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Interrupt Pip (Shh!)",
+                        text = "Hush Pip",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
                     )
@@ -200,7 +198,7 @@ fun DynamicListenControlBar(
                 onValueChange = { textInput = it },
                 placeholder = {
                     Text(
-                        text = if (isDynamicListening) "Listening or type query…" else "Ask Pip anything…",
+                        text = if (isDynamicListening) "Pip is listening, or type here…" else "Ask Pip anything…",
                         color = TextMuted,
                         fontSize = 13.sp
                     )
