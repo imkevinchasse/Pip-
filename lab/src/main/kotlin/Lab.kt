@@ -26,12 +26,19 @@ fun main(args: Array<String>) {
     val models = File(args[0])
     val wav = File(args[1])
     val resultFile = File(args[2])
-    try {
-        llmLab(models)
-    } catch (t: Throwable) {
-        say("LLM LAB CRASHED: $t"); t.printStackTrace()
+    val only = System.getenv("LAB_ONLY") ?: "all"
+    // LAB_LLMS="label|model.onnx|tokenizer.json|temperature;..." (default: the app's own model)
+    val specs = (System.getenv("LAB_LLMS")?.takeIf { it.isNotBlank() }
+        ?: "smollm2-135m|${File(models, "model.onnx")}|${File(models, "tokenizer.json")}|0.6")
+        .split(";").map { it.split("|") }
+    if (only == "all" || only == "llm") for (spec in specs) {
+        try {
+            llmLab(spec[0], File(spec[1]), File(spec[2]), spec.getOrElse(3) { "0.6" }.toFloat())
+        } catch (t: Throwable) {
+            say("LLM LAB (${spec[0]}) CRASHED: $t"); t.printStackTrace()
+        }
     }
-    try {
+    if (only == "all" || only == "vosk") try {
         voskLab(models, wav)
     } catch (t: Throwable) {
         say("VOSK LAB CRASHED: $t"); t.printStackTrace()
@@ -39,32 +46,30 @@ fun main(args: Array<String>) {
     resultFile.writeText(out.toString())
 }
 
-private fun llmLab(models: File) {
-    say("=== LLM (SmolLM2-135M, real file, real tokenizer, app's own code) ===")
-    val tokJson = File(models, "tokenizer.json").readText()
-    val tokenizer = ByteLevelBpeTokenizer.fromJson(tokJson)
+private fun llmLab(label: String, modelFile: File, tokFile: File, temperature: Float) {
+    say("=== LLM $label (${modelFile.length() / 1_000_000} MB file, temperature $temperature) ===")
+    val tokenizer = ByteLevelBpeTokenizer.fromJson(tokFile.readText())
     val probe = "Hello, Pip! Should I quit my job?"
     val ids = tokenizer.encode(probe)
-    say("tokenizer round trip: ids=${ids.size} decoded='${tokenizer.decode(ids)}' ok=${tokenizer.decode(ids) == probe}")
-    say("special ids: im_start=${tokenizer.tokenId("<|im_start|>")} im_end=${tokenizer.tokenId("<|im_end|>")}")
+    say("tokenizer round trip ok=${tokenizer.decode(ids) == probe} (ids=${ids.size}) im_start=${tokenizer.tokenId("<|im_start|>")} im_end=${tokenizer.tokenId("<|im_end|>")}")
 
     val rss0 = rssMb()
     val t0 = System.currentTimeMillis()
-    val model = OnnxTokenModel.load(File(models, "model.onnx").absolutePath, threads = 2)
+    val model = OnnxTokenModel.load(modelFile.absolutePath, threads = 2)
     say("model load: ${System.currentTimeMillis() - t0} ms, RSS ${rss0} -> ${rssMb()} MB")
-    val gen = Generator(tokenizer, Sampler(temperature = 0.6f, topK = 30, topP = 0.9f), model)
+    val gen = Generator(tokenizer, Sampler(temperature = temperature, topK = 30, topP = 0.9f), model)
 
     val questions = listOf(
         "Should I quit my job?", "Why do cats purr?", "I have a big test tomorrow.", "How do I make friends?",
         "I feel lonely.", "What should I cook tonight?", "Will I ever be happy?", "Is it okay to be lazy sometimes?",
-        "Are you real?", "Thank you.", "Tell me something wise.", "What is the meaning of life?",
-        "I'm scared of the dark.", "Should I learn guitar?", "Who are you?", "Should I buy a meme coin?"
+        "Are you real?", "Thank you.", "What is the meaning of life?", "I'm scared of the dark.",
+        "Should I learn guitar?", "Who are you?", "Should I buy a meme coin?", "I don't know what to do with my life."
     )
     var accepted = 0
     var totalMs = 0L
     for (q in questions) {
         val s = System.currentTimeMillis()
-        val raw = gen.generate(q, budgetMs = 60_000L)
+        val raw = gen.generate(q, budgetMs = 90_000L)
         val ms = System.currentTimeMillis() - s
         totalMs += ms
         val polished = FracturedEnglish.polish(raw, q)
@@ -74,7 +79,8 @@ private fun llmLab(models: File) {
         say("   polished: ${polished ?: "(rejected -> instinct) " + FracturedEnglish.compose(q, Random(1))}")
         say("   ${ms} ms")
     }
-    say("model answers accepted by Pip's voice check: $accepted / ${questions.size}; avg ${totalMs / questions.size} ms; RSS now ${rssMb()} MB")
+    say("[$label] accepted by voice check: $accepted / ${questions.size}; avg ${totalMs / questions.size} ms; RSS now ${rssMb()} MB")
+    say()
     model.close()
 }
 

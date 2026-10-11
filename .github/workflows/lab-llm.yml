@@ -1,0 +1,37 @@
+name: Pip lab - answer models
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  llm:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: 17 }
+      - uses: gradle/actions/setup-gradle@v4
+        with: { gradle-version: 9.3.1 }
+      - name: Fetch candidate models
+        run: |
+          mkdir -p /tmp/m && cd /tmp/m
+          HF=https://huggingface.co
+          curl -fL -o smol360.onnx  $HF/HuggingFaceTB/SmolLM2-360M-Instruct/resolve/main/onnx/model_q4.onnx
+          curl -fL -o smol360.json  $HF/HuggingFaceTB/SmolLM2-360M-Instruct/resolve/main/tokenizer.json
+          curl -fL -o qwen05.onnx   $HF/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/onnx/model_int8.onnx
+          curl -fL -o qwen05.json   $HF/onnx-community/Qwen2.5-0.5B-Instruct/resolve/main/tokenizer.json
+          ls -l
+      - name: Run lab
+        env:
+          LAB_ONLY: llm
+          LAB_LLMS: "smollm2-360m-q4|/tmp/m/smol360.onnx|/tmp/m/smol360.json|0.5;qwen2.5-0.5b-int8|/tmp/m/qwen05.onnx|/tmp/m/qwen05.json|0.5"
+        run: |
+          set -o pipefail
+          gradle -p lab run --args="/tmp/m /tmp/m/none.wav /tmp/report.txt" 2>&1 | tee /tmp/gradle.log
+        continue-on-error: true
+      - name: Publish
+        if: always()
+        env: { GITHUB_TOKEN: "${{ github.token }}" }
+        run: |
+          { cat /tmp/report.txt 2>/dev/null || echo "(no report)"; echo; echo "--- gradle tail ---"; tail -40 /tmp/gradle.log; } > /tmp/out.txt
+          lab/publish.sh llm.txt /tmp/out.txt
