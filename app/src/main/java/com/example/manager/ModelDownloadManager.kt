@@ -30,23 +30,37 @@ data class ModelCatalog(
     companion object {
         private const val MB = 1024L * 1024L
 
+        /** Our own public GitHub Release (see .github/workflows/publish-models.yml): no login, no limits. */
+        private const val RELEASE = "https://github.com/imkevinchasse/Pip-/releases/download/models-v1"
+
         val DEFAULT = ModelCatalog(
             sttZip = RemoteFile(
                 name = "vosk-model-small-en-us-0.15.zip",
-                urls = listOf("https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"),
+                urls = listOf(
+                    "$RELEASE/vosk-model-small-en-us-0.15.zip",
+                    "https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
+                ),
                 minBytes = 30 * MB
             ),
             llmModel = RemoteFile(
                 name = "model.onnx",
                 urls = listOf(
+                    "$RELEASE/model.onnx",
+                    // Official repo (public, no login): 4-bit, ~182 MB.
+                    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/main/onnx/model_q4.onnx",
                     "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main/onnx/model_q4.onnx",
-                    "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main/onnx/model_quantized.onnx"
+                    // 8-bit, ~137 MB: a different file in case the 4-bit one is unavailable.
+                    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/main/onnx/model_quantized.onnx"
                 ),
                 minBytes = 40 * MB
             ),
             llmTokenizer = RemoteFile(
                 name = "tokenizer.json",
-                urls = listOf("https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main/tokenizer.json"),
+                urls = listOf(
+                    "$RELEASE/tokenizer.json",
+                    "https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/main/tokenizer.json",
+                    "https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main/tokenizer.json"
+                ),
                 minBytes = 200 * 1024L
             )
         )

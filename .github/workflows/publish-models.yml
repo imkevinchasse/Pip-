@@ -1,0 +1,37 @@
+name: Publish Pip models
+
+# Fetches Pip's models once (GitHub's servers have open internet) and saves them as a public
+# Release on this repo. The app downloads from here first: no login, no size limit.
+# Runs by itself on push; does nothing if the release already exists.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  models:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Skip if already published
+        id: check
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view models-v1 >/dev/null 2>&1; then echo "exists=true" >> "$GITHUB_OUTPUT"; else echo "exists=false" >> "$GITHUB_OUTPUT"; fi
+      - name: Fetch models
+        if: steps.check.outputs.exists == 'false'
+        run: tools/fetch_models.sh
+      - name: Publish release
+        if: steps.check.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          D=app/src/main/assets/models
+          ( cd $D && sha256sum vosk-model-small-en-us-0.15.zip model.onnx tokenizer.json ) > checksums.txt
+          gh release create models-v1 --title "Pip models" \
+            --notes "Speech model (Vosk small en-us 0.15), language model (SmolLM2-135M-Instruct, 4-bit ONNX) and tokenizer. Downloaded by the app on first launch." \
+            $D/vosk-model-small-en-us-0.15.zip $D/model.onnx $D/tokenizer.json checksums.txt

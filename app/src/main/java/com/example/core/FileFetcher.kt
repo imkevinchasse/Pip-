@@ -50,6 +50,7 @@ class FileFetcher(
         val sourceMarker = File(dest.path + ".part.src")
 
         var lastError: Exception? = null
+        val failures = ArrayList<String>()
         for (url in urls) {
             // Never resume bytes that came from a different URL (mirrors can be different files).
             val previousSource = runCatching { sourceMarker.readText() }.getOrNull()
@@ -68,21 +69,26 @@ class FileFetcher(
                     throw e
                 } catch (e: FetchException) {
                     lastError = e
-                    if (!e.retryable) break
+                    if (!e.retryable) { failures += "${hostOf(url)}: ${e.message}"; break }
                 } catch (e: IOException) {
                     lastError = e
                 }
                 if (attempt < maxAttemptsPerUrl) sleepCancellable(backoffMs * attempt, isCancelled)
             }
+            if (failures.none { it.startsWith(hostOf(url)) }) failures += "${hostOf(url)}: ${lastError?.message ?: "failed"}"
             // This URL is exhausted; whatever .part exists belongs to it, so drop it before the next.
             if (urls.last() != url) part.delete()
         }
         throw FetchException(
-            "Could not download from any source" + (lastError?.message?.let { ": $it" } ?: ""),
+            "Could not download from any source" +
+                (if (failures.isNotEmpty()) " (" + failures.distinct().joinToString("; ") + ")" else ""),
             retryable = true,
             cause = lastError
         )
     }
+
+    private fun hostOf(url: String): String =
+        runCatching { java.net.URI(url).host }.getOrNull() ?: "server"
 
     private fun downloadOnce(
         url: String,

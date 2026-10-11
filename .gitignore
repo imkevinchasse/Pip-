@@ -17,8 +17,6 @@ local.properties
 .env
 debug.keystore
 
-# Bundled models (big; created by tools/fetch_models.sh)
-/app/src/main/assets/models/*.zip
-/app/src/main/assets/models/*.onnx
-/app/src/main/assets/models/*.json
+# Bundled models: a whole model.onnx is too big for git; commit it as model.onnx.001, .002, ...
+/app/src/main/assets/models/model.onnx
 /app/src/main/assets/models/*.part

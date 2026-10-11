@@ -6,7 +6,7 @@ set -euo pipefail
 OUT="$(cd "$(dirname "$0")/.." && pwd)/app/src/main/assets/models"
 mkdir -p "$OUT"
 
-HF="https://huggingface.co/onnx-community/SmolLM2-135M-Instruct/resolve/main"
+HF="https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct/resolve/main"
 STT_URL="https://alphacephei.com/vosk/models/vosk-model-small-en-us-0.15.zip"
 
 fetch() { # url dest min_bytes

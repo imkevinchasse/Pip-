@@ -383,4 +383,37 @@ class ModelDownloadManagerTest {
         assertNotNull(m.status(ModelId.STT).error)
         assertFalse(m.sttDir.exists())
     }
+
+    @Test
+    fun splitFilesAreJoinedBackInOrder() {
+        val whole = ByteArray(250_000) { (it * 7 % 256).toByte() }
+        val files = mapOf(
+            "m.bin.001" to whole.copyOfRange(0, 100_000),
+            "m.bin.002" to whole.copyOfRange(100_000, 200_000),
+            "m.bin.003" to whole.copyOfRange(200_000, 250_000)
+        )
+        val joined = ChunkedAssets.open({ files[it]?.inputStream() }, "m.bin")!!.use { it.readBytes() }
+        assertTrue(whole.contentEquals(joined))
+        assertNull(ChunkedAssets.open({ null }, "m.bin"))
+        // A whole file beats pieces.
+        val pick = ChunkedAssets.open({ if (it == "m.bin") byteArrayOf(9).inputStream() else files[it]?.inputStream() }, "m.bin")!!
+        assertEquals(9, pick.use { it.read() })
+    }
+
+    @Test
+    fun aBrainSplitIntoPiecesInstallsLikeAWholeOne() {
+        val pieces = mapOf(
+            "model.onnx.001" to modelBytes.copyOfRange(0, 70_000),
+            "model.onnx.002" to modelBytes.copyOfRange(70_000, modelBytes.size)
+        )
+        val m = bundledManager(BundledModels { name ->
+            when (name) {
+                BundledModels.LLM_TOKENIZER -> tokenizerBytes.inputStream()
+                else -> ChunkedAssets.open({ pieces[it]?.inputStream() }, name)
+            }
+        })
+        m.installBundled()
+        waitFor { m.isReady(ModelId.LLM) }
+        assertTrue(modelBytes.contentEquals(m.llmModelFile.readBytes()))
+    }
 }

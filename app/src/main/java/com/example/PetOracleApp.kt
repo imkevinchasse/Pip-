@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import com.example.manager.BundledModels
+import com.example.manager.ChunkedAssets
 import com.example.manager.ModelDownloadManager
 import java.io.File
 import java.io.IOException
@@ -29,11 +30,13 @@ class PetOracleApp : Application() {
             freeBytes = { filesDir.usableSpace },
             // Models placed in app/src/main/assets/models/ at build time (see tools/fetch_models.sh).
             bundled = BundledModels { name ->
-                try {
-                    assets.open("models/$name")
-                } catch (_: IOException) {
-                    null
-                }
+                ChunkedAssets.open({ part ->
+                    try {
+                        assets.open("models/$part")
+                    } catch (_: IOException) {
+                        null
+                    }
+                }, name)
             }
         )
     }
