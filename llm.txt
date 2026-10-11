@@ -1,0 +1,180 @@
+=== LLM smollm2-360m-q4 (387 MB file, temperature 0.5) ===
+tokenizer round trip ok=true (ids=10) im_start=1 im_end=2
+model load: 1079 ms, RSS 88 -> 742 MB
+Q: Should I quit my job?
+   raw     : No, no. Pip not know all story. Ask: more learn or more hurt? If hurt, plan small exit. Then go away, then back home again.
+   polished: No, no. Pip not know all story. Ask more learn or more hurt. If hurt, plan small exit. Then go away, then back home again.
+   2930 ms
+Q: Why do cats purr?
+   raw     : Purr, purr. Purrs like a cat, then go to sleep. Purrs are best when alone or with friend.
+   polished: Purr, purr. Purrs like cat, then go to sleep. Purrs is best when alone or with friend.
+   2545 ms
+Q: I have a big test tomorrow.
+   raw     : Lose, better keep save. Save bank. Lose is you if meme coin.
+   polished: Lose, better keep save. Save bank. Lose is you if meme coin.
+   2236 ms
+Q: How do I make friends?
+   raw     : Say hello first. Ask small question. Listen more than talk, then go again tomorrow.
+   polished: Say hello first. Ask small question. Listen more than talk, then go again tomorrow.
+   2181 ms
+Q: I feel lonely.
+   raw     : Lonely, lonely. Pip can be friend. Tell me more about you, then go away small to another friend.
+   polished: Lonely, lonely. Pip can be friend. Tell Pip more about you.
+   2446 ms
+Q: What should I cook tonight?
+   raw     : Pip not know all story. Ask: more learn or more hurt? If hurt, plan small exit. Then go.
+   polished: Pip not know all story. Ask more learn or more hurt. If hurt, plan small exit. Then go.
+   2411 ms
+Q: Will I ever be happy?
+   raw     : Pip not know all story. Happiness is not always happy. But you can be happy today, tomorrow too, if true happiness someday come to you: small promise.
+   polished: Pip not know all story. Happiness is not always happy. But you can be happy today, tomorrow too.
+   2784 ms
+Q: Is it okay to be lazy sometimes?
+   raw     : Yes. Sleep is also work. Rest today, try again tomorrow.
+   polished: Yes. Sleep is also work. Rest today, try again tomorrow.
+   2005 ms
+Q: Are you real?
+   raw     : Yes, I am. This is just a phone to talk with you.
+   polished: Yes, Pip is. This is phone to talk with you.
+   2019 ms
+Q: Thank you.
+   raw     : You're welcome.
+   polished: You is welcome.
+   1559 ms
+Q: What is the meaning of life?
+   raw     : Pip not know all story. But life, do mean: live small. Do things that matter to you then go home and sleep in it big place.
+   polished: Pip not know all story. But life, do mean live small. Do things that matter to you then go home.
+   2785 ms
+Q: I'm scared of the dark.
+   raw     : Pip not know all story. Tell: it's a little scary, but go to sleep. Then ask more learn or more hurt? If hurt, plan small exit. Then go home to bed and rest.
+   polished: Pip not know all story. Tell it is little scary, but go to sleep. Then ask more learn or more hurt. If hurt, plan small exit. Then go home to bed and rest.
+   3201 ms
+Q: Should I learn guitar?
+   raw     : Guitar, not know all story. Learn small step: practice a little more each day. Then go to next friend's place if need be, then home.
+   polished: Guitar, not know all story. Learn small step practice little more each day. Then go to next friend's place if need be.
+   2832 ms
+Q: Who are you?
+   raw     : Pip.
+   polished: (rejected -> instinct) Pip is pip.
+   1477 ms
+Q: Should I buy a meme coin?
+   raw     : Lose, better keep save. Meme coin not you. Do your best, then rest tomorrow.
+   polished: Lose, better keep save. Meme coin not you. Do your best, then rest tomorrow.
+   2302 ms
+Q: I don't know what to do with my life.
+   raw     : Pip not know all story. Ask: what to do? Small step, big hope. Learn one thing at time, then more learn more than you can think of.
+   polished: Pip not know all story. Ask what to do. Small step, big hope. Learn one thing at time.
+   2859 ms
+[smollm2-360m-q4] accepted by voice check: 15 / 16; avg 2410 ms; RSS now 848 MB
+
+=== LLM qwen2.5-0.5b-int8 (512 MB file, temperature 0.5) ===
+tokenizer round trip ok=true (ids=10) im_start=151644 im_end=151645
+model load: 904 ms, RSS 572 -> 1332 MB
+Q: Should I quit my job?
+   raw     : P. Should I quit? Quitting is a bit of language. /  /  Why do you say? Quiting is a bit of language. What does that mean?
+   polished: P. Pip quit. Quitting is bit of language. Why do you say. Quiting is bit of language. What do that mean.
+   3998 ms
+Q: Why do cats purr?
+   raw     : Pip gives one sentence. Then, who is a sentence? In what I'm doing? That's all. You're done! What will you say on that?
+   polished: Pip gives one sentence. Then, who is sentence. In what Pip is doing. That is all. You is done. What will you say on that.
+   3950 ms
+Q: I have a big test tomorrow.
+   raw     : P. Give me a big test tomorrow?
+   polished: P. Give Pip big test tomorrow.
+   1948 ms
+Q: How do I make friends?
+   raw     : Pip gives friend a nickname, so it's easy to remember. :D / You see this in a column on the left. / - The 1st line is also: You see this in a row below. /  - The 2nd line is also: It's the
+   polished: Pip gives friend nickname. D. You see this in column on left. 1st line is also you see this in row. 2nd line is also it is.
+   5859 ms
+Q: I feel lonely.
+   raw     : P speaks lonely.
+   polished: P speaks lonely.
+   1540 ms
+Q: What should I cook tonight?
+   raw     : P. Should I cook tonight?
+   polished: P. Pip cook tonight.
+   1805 ms
+Q: Will I ever be happy?
+   raw     : P. I am happy to be a person, you are happy to be a person. / I am happiness. P. You are happiness. /  I am Happiness.
+   polished: P. Pip is happy to be person. Pip is happiness. P. You is happiness. Pip is happiness.
+   3843 ms
+Q: Is it okay to be lazy sometimes?
+   raw     : Yes, I'm a new friend.
+   polished: Yes, Pip is new friend.
+   1915 ms
+Q: Are you real?
+   raw     : P. You know yourself, I'm a good friend who lives inside a phone call. / You're not really an AI that's living inside a phone. It seems like you have the ability to speak in English, but it doesn't mean. / I'm not really an AI that
+   polished: P. You know yourself. You is not ai that is living inside phone. It seems like you have ability to speak in. Pip is not ai that.
+   5796 ms
+Q: Thank you.
+   raw     : P. Give a reply / You can give a reply. / Give me the answer / I can give you the answer. / Sure, I know. Give me sure it's sure. Yes, I'm Sure It's Sure.
+   polished: P. Give reply. You can give reply. Give Pip answer. Pip can give you answer. Sure, Pip know. Give Pip sure it is sure.
+   4898 ms
+Q: What is the meaning of life?
+   raw     : P speaks simple. What does P speak? Speak. / Simple. What does P speak? / What is the meaning of this sentence?
+   polished: P speaks simple. What do p speak. Speak. Simple. What do p speak. What is meaning of this sentence.
+   3311 ms
+Q: I'm scared of the dark.
+   raw     : I'm scared of the dark.
+   polished: (rejected -> instinct) Scared today. Okay. Scared is visitor, not house. Sit, breathe, let it go slow. You stay.
+   1783 ms
+Q: Should I learn guitar?
+   raw     : Pip speaks simple English. short sentence: How do you feel? Answer: "I'm a little bit tired." I'll give it to the class.  / Pip speaks simple English. /  short sentence: How do you feel?
+   polished: Pip speaks simple english. Short sentence how do you feel. Answer Pip is little bit tired. Pip will give it to class. Pip speaks simple english. Short sentence how do you feel.
+   5073 ms
+Q: Who are you?
+   raw     : P. You are a joke. / I am a joke. I am you are joking. / You are joking, I am you're kidding. You're kidding, I'm telling you to joke.
+   polished: P. You is joke. Pip is joke. Pip is you is joking. You is joking, Pip is you is kidding. You is kidding, Pip is telling you to joke.
+   4421 ms
+Q: Should I buy a meme coin?
+   raw     : Pip gives one. Ask a question? Yes, I can give you one. Ask a question? / I'm sorry that's not going to help me. / You're not going to help me.
+   polished: (rejected -> instinct) Lose, better keep save. Save bank. Lose is you if meme coin.
+   4564 ms
+Q: I don't know what to do with my life.
+   raw     : I don't know what I'm doing. / Remember, I am just a little kid. How do you say it? Remember, I am just a little kid. How do you say it? / I don't know what I'm doing.
+   polished: Pip no know what Pip is doing. Remember, Pip is little kid. How do you say it. Remember, Pip is little kid. How do you say it. Pip no know what Pip is doing.
+   5278 ms
+[qwen2.5-0.5b-int8] accepted by voice check: 14 / 16; avg 3748 ms; RSS now 1575 MB
+
+
+--- gradle tail ---
+   1915 ms
+Q: Are you real?
+   raw     : P. You know yourself, I'm a good friend who lives inside a phone call. / You're not really an AI that's living inside a phone. It seems like you have the ability to speak in English, but it doesn't mean. / I'm not really an AI that
+   polished: P. You know yourself. You is not ai that is living inside phone. It seems like you have ability to speak in. Pip is not ai that.
+   5796 ms
+Q: Thank you.
+   raw     : P. Give a reply / You can give a reply. / Give me the answer / I can give you the answer. / Sure, I know. Give me sure it's sure. Yes, I'm Sure It's Sure.
+   polished: P. Give reply. You can give reply. Give Pip answer. Pip can give you answer. Sure, Pip know. Give Pip sure it is sure.
+   4898 ms
+Q: What is the meaning of life?
+   raw     : P speaks simple. What does P speak? Speak. / Simple. What does P speak? / What is the meaning of this sentence?
+   polished: P speaks simple. What do p speak. Speak. Simple. What do p speak. What is meaning of this sentence.
+   3311 ms
+Q: I'm scared of the dark.
+   raw     : I'm scared of the dark.
+   polished: (rejected -> instinct) Scared today. Okay. Scared is visitor, not house. Sit, breathe, let it go slow. You stay.
+   1783 ms
+Q: Should I learn guitar?
+   raw     : Pip speaks simple English. short sentence: How do you feel? Answer: "I'm a little bit tired." I'll give it to the class.  / Pip speaks simple English. /  short sentence: How do you feel?
+   polished: Pip speaks simple english. Short sentence how do you feel. Answer Pip is little bit tired. Pip will give it to class. Pip speaks simple english. Short sentence how do you feel.
+   5073 ms
+Q: Who are you?
+   raw     : P. You are a joke. / I am a joke. I am you are joking. / You are joking, I am you're kidding. You're kidding, I'm telling you to joke.
+   polished: P. You is joke. Pip is joke. Pip is you is joking. You is joking, Pip is you is kidding. You is kidding, Pip is telling you to joke.
+   4421 ms
+Q: Should I buy a meme coin?
+   raw     : Pip gives one. Ask a question? Yes, I can give you one. Ask a question? / I'm sorry that's not going to help me. / You're not going to help me.
+   polished: (rejected -> instinct) Lose, better keep save. Save bank. Lose is you if meme coin.
+   4564 ms
+Q: I don't know what to do with my life.
+   raw     : I don't know what I'm doing. / Remember, I am just a little kid. How do you say it? Remember, I am just a little kid. How do you say it? / I don't know what I'm doing.
+   polished: Pip no know what Pip is doing. Remember, Pip is little kid. How do you say it. Remember, Pip is little kid. How do you say it. Pip no know what Pip is doing.
+   5278 ms
+[qwen2.5-0.5b-int8] accepted by voice check: 14 / 16; avg 3748 ms; RSS now 1575 MB
+
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791735877538.json
+
+BUILD SUCCESSFUL in 2m 9s
+2 actionable tasks: 2 executed
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.1/userguide/configuration_cache_enabling.html
