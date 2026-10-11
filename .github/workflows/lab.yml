@@ -1,0 +1,42 @@
+name: Pip lab (real models, desktop test bench)
+
+# Runs Pip's real code against the real models on GitHub's servers and publishes a report to the
+# `lab-results` branch (file: report.txt). Manual: Actions -> Pip lab -> Run workflow.
+on:
+  workflow_dispatch:
+  push:
+    branches: [lab-run]
+
+permissions:
+  contents: write
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.3.1
+      - name: Fetch models and a test recording
+        run: |
+          tools/fetch_models.sh
+          curl -fL -o /tmp/jfk.wav https://raw.githubusercontent.com/ggerganov/whisper.cpp/master/samples/jfk.wav
+      - name: Run lab
+        run: |
+          set -o pipefail
+          gradle -p lab run --args="$PWD/app/src/main/assets/models /tmp/jfk.wav /tmp/report.txt" 2>&1 | tee /tmp/gradle.log
+        continue-on-error: true
+      - name: Publish report
+        if: always()
+        run: |
+          mkdir -p /tmp/pub && cd /tmp/pub
+          { echo "run: ${GITHUB_RUN_ID} commit: ${GITHUB_SHA}"; echo; cat /tmp/report.txt 2>/dev/null || echo "(no report written)"; echo; echo "----- gradle tail -----"; tail -60 /tmp/gradle.log; } > report.txt
+          git init -q && git checkout -q -b lab-results
+          git config user.name "pip-lab" && git config user.email "pip-lab@users.noreply.github.com"
+          git add report.txt && git commit -q -m "lab report ${GITHUB_RUN_ID}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" lab-results
