@@ -297,4 +297,90 @@ class ModelDownloadManagerTest {
         assertEquals("No voice installed", m.status(ModelId.TTS).error)
         assertNull(manager().status(ModelId.STT).error)
     }
+
+    // ---- models bundled inside the app ---------------------------------------------------
+
+    private fun bundledSource(vararg present: String) = BundledModels { name ->
+        when {
+            name !in present -> null
+            name == BundledModels.STT_ZIP -> voskZip().inputStream()
+            name == BundledModels.LLM_MODEL -> modelBytes.inputStream()
+            name == BundledModels.LLM_TOKENIZER -> tokenizerBytes.inputStream()
+            else -> null
+        }
+    }
+
+    private fun bundledManager(source: BundledModels?, online: Boolean = false) = ModelDownloadManager(
+        modelsDir = File(dir, "models"),
+        scope = scope,
+        catalog = catalog(),
+        fetcher = FileFetcher(backoffMs = 5, maxAttemptsPerUrl = 1),
+        isOnline = { online },
+        freeBytes = { Long.MAX_VALUE },
+        bundled = source
+    )
+
+    @Test
+    fun bundledModelsInstallWithNoInternetAtAll() {
+        val m = bundledManager(
+            bundledSource(BundledModels.STT_ZIP, BundledModels.LLM_MODEL, BundledModels.LLM_TOKENIZER),
+            online = false
+        )
+        assertTrue(m.isBundled(ModelId.STT))
+        assertTrue(m.isBundled(ModelId.LLM))
+        m.installBundled()
+        waitFor { m.allDownloadsReady }
+        assertTrue(File(m.sttDir, "am/final.mdl").isFile)
+        assertEquals(modelBytes.size.toLong(), m.llmModelFile.length())
+        assertEquals(tokenizerBytes.size.toLong(), m.llmTokenizerFile.length())
+        assertEquals(ModelStatus.READY, m.status(ModelId.STT).status)
+        // No leftovers: no zip copy, no .part files.
+        assertFalse(File(dir, "models/stt/stt.zip").exists())
+        assertFalse(File(dir, "models/stt/${BundledModels.STT_ZIP}").exists())
+        assertTrue(m.llmDir.listFiles()!!.none { it.name.endsWith(".part") })
+    }
+
+    @Test
+    fun installBundledIsHarmlessWhenNothingIsBundled() {
+        val m = bundledManager(bundledSource(), online = false)
+        assertFalse(m.isBundled(ModelId.STT))
+        m.installBundled()
+        Thread.sleep(150)
+        assertEquals(ModelStatus.NOT_DOWNLOADED, m.status(ModelId.STT).status)
+        assertEquals(ModelStatus.NOT_DOWNLOADED, m.status(ModelId.LLM).status)
+    }
+
+    @Test
+    fun halfBundledBrainCountsAsNotBundledSoItFallsBackToDownload() {
+        val m = bundledManager(bundledSource(BundledModels.LLM_MODEL), online = true)
+        assertFalse(m.isBundled(ModelId.LLM))
+        m.download(ModelId.LLM)
+        waitFor { m.isReady(ModelId.LLM) } // came from the test server, not from the app
+    }
+
+    @Test
+    fun bundledInstallDoesNotReinstallWhatIsAlreadyThere() {
+        val src = bundledSource(BundledModels.STT_ZIP, BundledModels.LLM_MODEL, BundledModels.LLM_TOKENIZER)
+        val first = bundledManager(src)
+        first.installBundled()
+        waitFor { first.allDownloadsReady }
+        val stamp = first.llmModelFile.lastModified()
+        Thread.sleep(30)
+        val second = bundledManager(src)
+        assertTrue(second.allDownloadsReady) // read from disk at start-up
+        second.installBundled()
+        Thread.sleep(150)
+        assertEquals(stamp, second.llmModelFile.lastModified())
+    }
+
+    @Test
+    fun corruptBundledSpeechZipFailsWithAReasonAndLeavesNothingHalfInstalled() {
+        val m = bundledManager(BundledModels { name ->
+            if (name == BundledModels.STT_ZIP) ByteArray(50_000) { 1 }.inputStream() else null
+        })
+        m.download(ModelId.STT)
+        waitFor { m.status(ModelId.STT).status == ModelStatus.FAILED }
+        assertNotNull(m.status(ModelId.STT).error)
+        assertFalse(m.sttDir.exists())
+    }
 }

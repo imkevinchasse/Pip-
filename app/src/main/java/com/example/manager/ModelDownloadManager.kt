@@ -9,6 +9,7 @@ import com.example.model.ModelItem
 import com.example.model.ModelStatus
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -53,6 +54,21 @@ data class ModelCatalog(
 }
 
 /**
+ * Model files that ship inside the app itself (the APK's assets). When present, Pip installs
+ * from these with no internet at all. [open] returns null for a file that was not bundled.
+ */
+fun interface BundledModels {
+    fun open(name: String): InputStream?
+
+    companion object {
+        /** Asset names, relative to assets/models/. Same names the download catalog uses. */
+        const val STT_ZIP = "vosk-model-small-en-us-0.15.zip"
+        const val LLM_MODEL = "model.onnx"
+        const val LLM_TOKENIZER = "tokenizer.json"
+    }
+}
+
+/**
  * Downloads, verifies and installs Pip's models into app-private storage.
  *
  * Honest by construction: a model is READY only if its real files are on disk and passed
@@ -65,7 +81,8 @@ class ModelDownloadManager(
     private val fetcher: FileFetcher = FileFetcher(),
     private val isOnline: () -> Boolean = { true },
     private val freeBytes: () -> Long = { modelsDir.usableSpace },
-    private val ioContext: kotlin.coroutines.CoroutineContext = Dispatchers.IO
+    private val ioContext: kotlin.coroutines.CoroutineContext = Dispatchers.IO,
+    private val bundled: BundledModels? = null
 ) {
 
     val sttDir = File(modelsDir, "stt/vosk-small-en")
@@ -154,6 +171,38 @@ class ModelDownloadManager(
         return listOf(override) + defaults
     }
 
+    // ---- models that ship inside the app ----------------------------------------------------
+
+    /** True when the app was built with this model's files inside it. */
+    fun isBundled(id: ModelId): Boolean {
+        val source = bundled ?: return false
+        val names = when (id) {
+            ModelId.STT -> listOf(BundledModels.STT_ZIP)
+            ModelId.LLM -> listOf(BundledModels.LLM_MODEL, BundledModels.LLM_TOKENIZER)
+            ModelId.TTS -> return false
+        }
+        return names.all { name ->
+            try {
+                source.open(name)?.use { true } ?: false
+            } catch (_: IOException) {
+                false
+            }
+        }
+    }
+
+    /**
+     * Installs every missing model that ships inside the app. No internet needed. Call once at
+     * start-up; it does nothing when the models are already installed or were not bundled.
+     */
+    fun installBundled() {
+        if (bundled == null) return
+        scope.launch(ioContext) {
+            for (id in missingDownloads) {
+                if (isBundled(id)) download(id).join()
+            }
+        }
+    }
+
     // ---- downloading ----------------------------------------------------------------------
 
     fun downloadAllMissing() {
@@ -193,7 +242,8 @@ class ModelDownloadManager(
 
     private fun runDownload(id: ModelId, isCancelled: () -> Boolean) {
         try {
-            if (!isOnline()) {
+            val fromApp = isBundled(id)
+            if (!fromApp && !isOnline()) {
                 fail(id, "No internet connection. Connect once so Pip can download this, then it works offline.")
                 return
             }
@@ -208,8 +258,8 @@ class ModelDownloadManager(
                 return
             }
             when (id) {
-                ModelId.STT -> installStt(isCancelled)
-                ModelId.LLM -> installLlm(isCancelled)
+                ModelId.STT -> if (fromApp) installSttFromApp(isCancelled) else installStt(isCancelled)
+                ModelId.LLM -> if (fromApp) installLlmFromApp(isCancelled) else installLlm(isCancelled)
                 ModelId.TTS -> Unit
             }
         } catch (_: FetchCancelledException) {
@@ -238,13 +288,24 @@ class ModelDownloadManager(
             isCancelled = isCancelled
         )
 
+        unpackStt(zip, isCancelled)
+    }
+
+    private fun installSttFromApp(isCancelled: () -> Boolean) {
+        val zip = File(modelsDir, "stt/${catalog.sttZip.name}")
+        progress(ModelId.STT, ModelStatus.INSTALLING, 0, 0, 0, "Copying Pip's ears")
+        copyFromApp(BundledModels.STT_ZIP, zip, ModelId.STT, isCancelled)
+        unpackStt(zip, isCancelled)
+    }
+
+    private fun unpackStt(zip: File, isCancelled: () -> Boolean) {
         progress(ModelId.STT, ModelStatus.INSTALLING, 0, 0, 0, "Unpacking")
         val staging = File(modelsDir, "stt/vosk-small-en.tmp")
         staging.deleteRecursively()
         try {
             ZipExtractor.extract(zip, staging, isCancelled = isCancelled)
             if (!File(staging, "am").isDirectory || !File(staging, "conf").isDirectory) {
-                throw FetchException("The downloaded speech model looks wrong (missing files)", retryable = false)
+                throw FetchException("The speech model looks wrong (missing files)", retryable = false)
             }
             sttDir.deleteRecursively()
             if (!staging.renameTo(sttDir)) throw IOException("could not move the model into place")
@@ -256,6 +317,42 @@ class ModelDownloadManager(
         }
         zip.delete()
         settle(ModelId.STT)
+    }
+
+    private fun installLlmFromApp(isCancelled: () -> Boolean) {
+        llmDir.mkdirs()
+        progress(ModelId.LLM, ModelStatus.INSTALLING, 0, 0, 0, "Copying Pip's brain")
+        copyFromApp(BundledModels.LLM_TOKENIZER, llmTokenizerFile, ModelId.LLM, isCancelled)
+        copyFromApp(BundledModels.LLM_MODEL, llmModelFile, ModelId.LLM, isCancelled)
+        settle(ModelId.LLM)
+    }
+
+    /** Copies one bundled file to [dest] through a .part file, so a half copy is never mistaken for a model. */
+    private fun copyFromApp(name: String, dest: File, id: ModelId, isCancelled: () -> Boolean) {
+        val source = bundled?.open(name) ?: throw IOException("$name is not bundled in this app")
+        dest.parentFile?.mkdirs()
+        val part = File(dest.path + ".part")
+        part.delete()
+        var done = 0L
+        try {
+            source.use { input ->
+                part.outputStream().use { output ->
+                    val buffer = ByteArray(256 * 1024)
+                    while (true) {
+                        if (isCancelled()) throw FetchCancelledException()
+                        val n = input.read(buffer)
+                        if (n < 0) break
+                        output.write(buffer, 0, n)
+                        done += n
+                        update(id) { it.copy(downloadedBytes = done, currentFile = name) }
+                    }
+                }
+            }
+            dest.delete()
+            if (!part.renameTo(dest)) throw IOException("could not move $name into place")
+        } finally {
+            part.delete()
+        }
     }
 
     private fun installLlm(isCancelled: () -> Boolean) {

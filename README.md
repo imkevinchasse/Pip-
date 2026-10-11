@@ -18,7 +18,7 @@ Pip speaks broken English that sounds vaguely inspiring *because* the grammar is
 | Brain | SmolLM2-135M-Instruct, 4-bit ONNX, run with ONNX Runtime | ~100-200 MB download | ~250 MB while thinking, released when idle |
 | Voice | The phone's built-in text-to-speech, offline voices only | no download | negligible |
 
-The internet is used **once**, to download the Ears and Brain. After that Pip needs no connection, the microphone audio never leaves the phone, and cloud backup is switched off so the models are never uploaded anywhere.
+The Ears and Brain can ship **inside the app** (see *Bundling the models*), so there is nothing to download. Otherwise the internet is used **once**, to download them. After that Pip needs no connection, the microphone audio never leaves the phone, and cloud backup is switched off so the models are never uploaded anywhere.
 
 Pip measures its own real memory use (shown in the app) and aims to stay far below 1.5 GB: the language model loads only when thinking and is released after 60 s idle; the speech model is released when the mic has been off for 60 s.
 
@@ -32,6 +32,14 @@ Pip measures its own real memory use (shown in the app) and aims to stay far bel
 Every reply in the app shows which of these produced it.
 
 Pip never listens while it speaks (the mic is closed and a short tail is ignored), so it cannot answer its own voice.
+
+## Bundling the models (no download on the phone)
+If the model files are inside the APK, Pip installs them on first launch with no internet and no tap needed.
+
+- **Easiest:** on GitHub open *Actions → Build Pip APK (models included) → Run workflow*. GitHub's servers fetch the models, run the tests and build the APK; download the `pip-apk` artifact and install it.
+- **By hand:** run `tools/fetch_models.sh` (needs internet; fills `app/src/main/assets/models/`), then build in Android Studio.
+
+The model files are git-ignored (too big for git), so a build made without that step simply falls back to the in-app download.
 
 ## Layout
 ```

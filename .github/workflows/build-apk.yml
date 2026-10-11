@@ -1,0 +1,32 @@
+name: Build Pip APK (models included)
+
+# Builds an APK that already contains Pip's models, so the phone never has to download anything.
+# Run it from the Actions tab ("Run workflow") and download the "pip-apk" artifact.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: 9.3.1
+      - name: Fetch models into the app
+        run: tools/fetch_models.sh
+      - name: Unit tests
+        run: gradle :app:testDebugUnitTest
+      - name: Build APK
+        run: gradle :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pip-apk
+          path: app/build/outputs/apk/debug/*.apk

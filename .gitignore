@@ -16,3 +16,9 @@
 local.properties
 .env
 debug.keystore
+
+# Bundled models (big; created by tools/fetch_models.sh)
+/app/src/main/assets/models/*.zip
+/app/src/main/assets/models/*.onnx
+/app/src/main/assets/models/*.json
+/app/src/main/assets/models/*.part

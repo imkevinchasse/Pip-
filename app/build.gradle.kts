@@ -6,6 +6,11 @@ plugins {
 
 android {
   namespace = "com.example"
+
+  // Bundled models are already compressed; storing them as-is keeps installs fast and RAM-light.
+  androidResources {
+    noCompress += listOf("onnx", "zip")
+  }
   compileSdk { version = release(36) { minorApiLevel = 1 } }
 
   defaultConfig {
