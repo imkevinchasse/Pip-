@@ -1,11 +1,9 @@
 name: Build Pip APK (models included)
 
 # Builds an APK that already contains Pip's models, so the phone never has to download anything.
-# Run it from the Actions tab ("Run workflow") and download the "pip-apk" artifact.
+# GitHub's Ubuntu runners already include the Android SDK. Run it from the Actions tab ("Run workflow") and download the "pip-apk" artifact.
 on:
   workflow_dispatch:
-  push:
-    branches: [main]
 
 jobs:
   apk:
@@ -16,7 +14,6 @@ jobs:
         with:
           distribution: temurin
           java-version: 17
-      - uses: android-actions/setup-android@v3
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: 9.3.1
