@@ -55,14 +55,15 @@ fun MascotPip(
     stage: PipelineStage,
     amplitude: Float,
     onHeadClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    scaleFactor: Float = 1.0f
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "pip_animations")
 
     // Gentle floating idle breathing
     val floatOffsetY by infiniteTransition.animateFloat(
-        initialValue = -5f,
-        targetValue = 5f,
+        initialValue = -4f * scaleFactor,
+        targetValue = 4f * scaleFactor,
         animationSpec = infiniteRepeatable(
             animation = tween(2200, easing = FastOutSlowInEasing),
             repeatMode = RepeatMode.Reverse
@@ -91,11 +92,11 @@ fun MascotPip(
     // Dynamic Head Sizing: BIG when listening, SMALL when processing/thinking!
     val animatedAvatarSize by animateDpAsState(
         targetValue = when (stage) {
-            PipelineStage.LISTENING -> 195.dp  // BIG HEAD when listening!
-            PipelineStage.THINKING -> 92.dp    // SMALL HEAD when processing!
-            PipelineStage.SPEAKING -> 145.dp   // Lively medium size when speaking
-            PipelineStage.INTERRUPTED -> 136.dp
-            PipelineStage.IDLE -> 136.dp
+            PipelineStage.LISTENING -> 160.dp * scaleFactor  // Responsive BIG HEAD when listening!
+            PipelineStage.THINKING -> 80.dp * scaleFactor    // SMALL HEAD when processing!
+            PipelineStage.SPEAKING -> 120.dp * scaleFactor   // Medium size when speaking
+            PipelineStage.INTERRUPTED -> 110.dp * scaleFactor
+            PipelineStage.IDLE -> 110.dp * scaleFactor
         },
         animationSpec = spring(dampingRatio = 0.68f, stiffness = Spring.StiffnessMediumLow),
         label = "mascot_head_size"
@@ -103,11 +104,11 @@ fun MascotPip(
 
     val animatedHaloSize by animateDpAsState(
         targetValue = when (stage) {
-            PipelineStage.LISTENING -> 255.dp
-            PipelineStage.THINKING -> 122.dp
-            PipelineStage.SPEAKING -> 190.dp
-            PipelineStage.INTERRUPTED -> 174.dp
-            PipelineStage.IDLE -> 174.dp
+            PipelineStage.LISTENING -> 210.dp * scaleFactor
+            PipelineStage.THINKING -> 108.dp * scaleFactor
+            PipelineStage.SPEAKING -> 160.dp * scaleFactor
+            PipelineStage.INTERRUPTED -> 145.dp * scaleFactor
+            PipelineStage.IDLE -> 145.dp * scaleFactor
         },
         animationSpec = spring(dampingRatio = 0.68f, stiffness = Spring.StiffnessMediumLow),
         label = "mascot_halo_size"

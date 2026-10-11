@@ -29,7 +29,8 @@ import kotlin.math.sin
 fun AudioWaveformVisualizer(
     stage: PipelineStage,
     amplitude: Float,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    heightDp: androidx.compose.ui.unit.Dp = 36.dp
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "wave_phase")
     val phase by infiniteTransition.animateFloat(
@@ -61,7 +62,7 @@ fun AudioWaveformVisualizer(
     Canvas(
         modifier = modifier
             .fillMaxWidth()
-            .height(56.dp)
+            .height(heightDp)
             .testTag("audio_waveform_visualizer")
     ) {
         val width = size.width
