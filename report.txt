@@ -1,0 +1,139 @@
+run: 38154975655 commit: 8d6d56cc8de7c815a45965ed1f3930bec83f62e5
+
+=== LLM (SmolLM2-135M, real file, real tokenizer, app's own code) ===
+tokenizer round trip: ids=10 decoded='Hello, Pip! Should I quit my job?' ok=true
+special ids: im_start=1 im_end=2
+model load: 423 ms, RSS 87 -> 425 MB
+Q: Should I quit my job?
+   raw     : No. Don't do it for the first time. You will have to go again, then stop yourself and others in a few days or weeks if you get hurt on the job. If not, quit for now...
+   polished: No. No do it for first time. You will have to go again. If not, quit for now.
+   1130 ms
+Q: Why do cats purr?
+   raw     : Putt, why do cats purr? Purrs. Purring is good to all the cat's in me and you for sure.
+   polished: Putt, why do cats purr. Purrs. Purring is good to all cat's in Pip and.
+   832 ms
+Q: I have a big test tomorrow.
+   raw     : Big test, big time. No wonder you feel so tired and sick to be in the lab today. Do not try again tomorrow: no good come here, now better stay here.
+   polished: Big test, big time. No wonder you feel so tired and sick to. Do not try again tomorrow no good come here.
+   950 ms
+Q: How do I make friends?
+   raw     : Pip not know all story. Ask small question, then talk. Friend grow slow and learn more fast in the end, like plant's flower time to blossom into full bloom.
+   polished: Pip not know all story. Ask small question, then talk. Friend grow slow and learn more fast in end.
+   917 ms
+Q: I feel lonely.
+   raw     : Lonely. What I feel is loneliness, what I do not know how to make it. Lone and lonely are the same thing. What's my best way?
+   polished: Lonely. What Pip feel is loneliness. Lone and lonely is same thing. What is Pip best way.
+   901 ms
+Q: What should I cook tonight?
+   raw     : No, no. No to cook at all. You have to eat first and then go again or more than once if you can't do it right now. If not, try next day to make the same as last night and then go again or more than once if you can
+   polished: No, no. No to cook at all. You have to eat first and then go again. If not, try next day to make same as.
+   1218 ms
+Q: Will I ever be happy?
+   raw     : No, no. No happy day at all. Grow not only but also grow faster and more better in the world than I have ever done before, or less happy at all.
+   polished: No, no. No happy day at all. Grow not only but also grow faster and more.
+   914 ms
+Q: Is it okay to be lazy sometimes?
+   raw     : Yes. Lazy to sleep, lazy to work... no the or a.
+   polished: Yes. Lazy to sleep, lazy to work. No or.
+   671 ms
+Q: Are you real?
+   raw     : No, I am real. No you are not. You can be fake or only real if fake is the way to go and only one's real, though that might not work.
+   polished: No, Pip is real. No you is not. You can be fake or only real if fake.
+   932 ms
+Q: Thank you.
+   raw     : Thanks. Thank you very much for your help.
+   polished: Thanks. Thank you much for your help.
+   592 ms
+Q: Tell me something wise.
+   raw     : I know not. I don't like to talk, so try again tomorrow when you are ready and go home with a smile on your face.
+   polished: Pip know not. Pip no like to talk.
+   834 ms
+Q: What is the meaning of life?
+   raw     : Meaning not life. Meaning is simple, but meaning is a story of many stories and more than one answer to that question. Meaning not life. Meaning can be simple, but it is a story of many stories and more than one answer to that question.
+   polished: Meaning not life. Meaning is simple. Meaning not life. Meaning can be simple.
+   1127 ms
+Q: I'm scared of the dark.
+   raw     : No fear. Lose is you if dark. Good luck, no need to stop it now or then come back soon and try again.
+   polished: No fear. Lose is you if dark. Good luck, no need to stop it now or.
+   835 ms
+Q: Should I learn guitar?
+   raw     : Pip not know all story. Ask: more learn, more hurt? If hurt, plan small exit and go again.
+   polished: Pip not know all story. Ask more learn, more hurt. If hurt, plan small exit and go again.
+   766 ms
+Q: Who are you?
+   raw     : Pip. I am Pip. My name is Pip, my age is 25 years old and my height: 6 foot tall with a weight of about three pounds. I am good, clean, healthy. Good is me when it comes to job and no the or a
+   polished: Pip. Pip is Pip. Pip name is Pip. Pip is good, clean, healthy. Good is Pip when it comes to job and.
+   1187 ms
+Q: Should I buy a meme coin?
+   raw     : No. Don't use it, then go. If you don't like meme coin's way to the end and no more than 20 percent of your time. If you don't like it, then go.
+   polished: No. No use it, then go. If you no like meme coin's way to end. If you no like it, then go.
+   1050 ms
+model answers accepted by Pip's voice check: 16 / 16; avg 928 ms; RSS now 551 MB
+
+=== Vosk small (real model, real recording) ===
+load: 202 ms, RSS 342 -> 394 MB
+audio: 11.0 s
+heard: 'and so my fellow americans as not what your country can do for you ask what you can do for your country'
+expected: 'and so my fellow americans ask not what your country can do for you ask what you can do for your country'
+
+----- gradle tail -----
+Q: I feel lonely.
+   raw     : Lonely. What I feel is loneliness, what I do not know how to make it. Lone and lonely are the same thing. What's my best way?
+   polished: Lonely. What Pip feel is loneliness. Lone and lonely is same thing. What is Pip best way.
+   901 ms
+Q: What should I cook tonight?
+   raw     : No, no. No to cook at all. You have to eat first and then go again or more than once if you can't do it right now. If not, try next day to make the same as last night and then go again or more than once if you can
+   polished: No, no. No to cook at all. You have to eat first and then go again. If not, try next day to make same as.
+   1218 ms
+Q: Will I ever be happy?
+   raw     : No, no. No happy day at all. Grow not only but also grow faster and more better in the world than I have ever done before, or less happy at all.
+   polished: No, no. No happy day at all. Grow not only but also grow faster and more.
+   914 ms
+Q: Is it okay to be lazy sometimes?
+   raw     : Yes. Lazy to sleep, lazy to work... no the or a.
+   polished: Yes. Lazy to sleep, lazy to work. No or.
+   671 ms
+Q: Are you real?
+   raw     : No, I am real. No you are not. You can be fake or only real if fake is the way to go and only one's real, though that might not work.
+   polished: No, Pip is real. No you is not. You can be fake or only real if fake.
+   932 ms
+Q: Thank you.
+   raw     : Thanks. Thank you very much for your help.
+   polished: Thanks. Thank you much for your help.
+   592 ms
+Q: Tell me something wise.
+   raw     : I know not. I don't like to talk, so try again tomorrow when you are ready and go home with a smile on your face.
+   polished: Pip know not. Pip no like to talk.
+   834 ms
+Q: What is the meaning of life?
+   raw     : Meaning not life. Meaning is simple, but meaning is a story of many stories and more than one answer to that question. Meaning not life. Meaning can be simple, but it is a story of many stories and more than one answer to that question.
+   polished: Meaning not life. Meaning is simple. Meaning not life. Meaning can be simple.
+   1127 ms
+Q: I'm scared of the dark.
+   raw     : No fear. Lose is you if dark. Good luck, no need to stop it now or then come back soon and try again.
+   polished: No fear. Lose is you if dark. Good luck, no need to stop it now or.
+   835 ms
+Q: Should I learn guitar?
+   raw     : Pip not know all story. Ask: more learn, more hurt? If hurt, plan small exit and go again.
+   polished: Pip not know all story. Ask more learn, more hurt. If hurt, plan small exit and go again.
+   766 ms
+Q: Who are you?
+   raw     : Pip. I am Pip. My name is Pip, my age is 25 years old and my height: 6 foot tall with a weight of about three pounds. I am good, clean, healthy. Good is me when it comes to job and no the or a
+   polished: Pip. Pip is Pip. Pip name is Pip. Pip is good, clean, healthy. Good is Pip when it comes to job and.
+   1187 ms
+Q: Should I buy a meme coin?
+   raw     : No. Don't use it, then go. If you don't like meme coin's way to the end and no more than 20 percent of your time. If you don't like it, then go.
+   polished: No. No use it, then go. If you no like meme coin's way to end. If you no like it, then go.
+   1050 ms
+model answers accepted by Pip's voice check: 16 / 16; avg 928 ms; RSS now 551 MB
+
+=== Vosk small (real model, real recording) ===
+load: 202 ms, RSS 342 -> 394 MB
+audio: 11.0 s
+heard: 'and so my fellow americans as not what your country can do for you ask what you can do for your country'
+expected: 'and so my fellow americans ask not what your country can do for you ask what you can do for your country'
+gradle/actions: Writing build results to /home/runner/work/_temp/.gradle-actions/build-results/__run_2-1791735591420.json
+
+BUILD SUCCESSFUL in 1m 8s
+2 actionable tasks: 2 executed
+Consider enabling configuration cache to speed up this build: https://docs.gradle.org/9.3.1/userguide/configuration_cache_enabling.html
