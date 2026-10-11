@@ -35,18 +35,18 @@ object FracturedEnglish {
     private const val ANSWER_WHO_ARE_YOU = "Pip is pip."
 
     const val SYSTEM_PROMPT =
-        "You are Pip, a tiny pet who lives inside a phone. Pip speaks broken English with small " +
-            "words and short sentences. Pip repeats the important word. Pip never explains. " +
-            "Pip always ends with a little hope."
+        "You are Pip, a small kind pet who lives inside a phone. Pip speaks simple broken English: " +
+            "short sentences, easy words, no the or a. Pip gives one real, helpful answer, then a little hope. " +
+            "Pip never repeats a word just to repeat it."
 
     /** Examples shown to the language model before the real question. */
     val FEW_SHOT: List<Example> = listOf(
         Example("Should I invest all my savings into a meme coin?", ANSWER_MEME_COIN),
-        Example("Why is life hard?", ANSWER_LIFE_HARD),
-        Example("I've never gone skydiving. Should I?", ANSWER_SKYDIVE),
         Example("Who are you?", ANSWER_WHO_ARE_YOU),
-        Example("What is love?", "Love is love. Heart go, heart stay. Give, give, give more. Love is when give is happy."),
-        Example("I am scared of the future.", "Future is not here. Here is here. Walk. Scared walk is still walk. Continue.")
+        Example("I have a big test tomorrow.", "Big test, big feeling. Sleep early. Do your best, then rest. One test is not whole you."),
+        Example("Is it okay to be lazy sometimes?", "Yes. Rest is also work. Battery need charge. Rest today, try again tomorrow."),
+        Example("How do I make friends?", "Say hello first. Ask small question. Listen more than talk. Friend grow slow, like plant."),
+        Example("Should I quit my job?", "Pip not know all story. Ask: more learn or more hurt? If hurt, plan small exit. Then go.")
     )
 
     const val GREETING = "Pip is pip. You is here. Good. Good is enough."
@@ -162,6 +162,7 @@ object FracturedEnglish {
         val lowered = text.lowercase()
         if (BANNED_PHRASES.any { lowered.contains(it) } || PROFANITY.containsMatchIn(lowered)) return null
         if (isEcho(text, query)) return null
+        if (tautologyCount(text) >= 2) return null // "X is X" once is charm; twice is a stuck model
 
         text = text
             .replace('’', '\'').replace('‘', '\'')
@@ -217,6 +218,11 @@ object FracturedEnglish {
         val sentenceText = finished.joinToString(" ")
         return sentenceCase(sentenceText) + "."
     }
+
+    private val TAUTOLOGY = Regex("""\b([a-z]{3,}) is \1\b""")
+
+    /** How many "X is X" phrases the text holds ("Life is life", "Pip is pip"). */
+    internal fun tautologyCount(text: String): Int = TAUTOLOGY.findAll(text.lowercase()).count()
 
     /** True when [reply] mostly repeats the words of [query] (checked before any rewriting). */
     private fun isEcho(reply: String, query: String): Boolean {
@@ -297,6 +303,10 @@ object FracturedEnglish {
     private val WHAT_RE = Regex("""^(what|whats)\b""")
     private val HOW_RE = Regex("""^how\b""")
     private val WHO_RE = Regex("""^who\b""")
+    private val ABOUT_PIP_RE = Regex(
+        """\b(are you (real|alive|human|a robot|a bot|an ai|smart)|what can you do|where do you live|""" +
+            """how old are you|who (made|created|built) you|do you (sleep|eat|dream|feel|have))\b"""
+    )
 
     /** First and last meaningful words of the question. */
     internal data class Topic(val verb: String, val noun: String)
@@ -322,76 +332,196 @@ object FracturedEnglish {
         }
     }
 
+    // Pools of real answers. Light fracturing: easy words, no articles, "is" for everything,
+    // but each one actually responds to the question. {T} is the topic word, {F} a feeling.
+    private val MONEY = listOf(
+        "Money is tool. Tool serve you, not you serve tool. Save some, spend some, sleep well. Slow money grows.",
+        "Fast money run fast, also away. Slow money stay. Save little each week. Little become big. Wait is okay.",
+        "Pip not know your numbers. But rule is easy: no spend what you cannot lose. Safe first, then dream."
+    )
+    private val WORK = listOf(
+        "Job is only part of you. Ask: this job grow you? If yes, stay and learn. If no, plan small exit. Then go.",
+        "Tired of work? Rest first, decide later. Tired mind see bad road. Sleep, then choose.",
+        "Boss is also person, also tired. Say clear, say kind. Clear and kind open many door."
+    )
+    private val LOVE = listOf(
+        "Love is slow garden. Water every day, not one big day. Be kind, be honest. Sun do rest.",
+        "Heart is honest, mouth is scared. Say true thing, small and soft. Answer come, or peace come. Both good.",
+        "Want to text them? Then say hello, simple. No wait for perfect words. Then let go of result."
+    )
+    private val PEOPLE = listOf(
+        "Friend grow slow, like plant. Say hello first. Ask small question. Listen more than talk.",
+        "Family is hard and warm same time. Say one kind thing today. Small kind is enough. Continue.",
+        "Be friend you want to have. Show up small, show up often. Good people find good people."
+    )
+    private val BODY = listOf(
+        "Body is home. Feed it good, move it little, sleep it enough. Small habit, big change in one year.",
+        "Sleep first. Many problem is just tired problem. Close eyes. Tomorrow Pip is still here.",
+        "Eat slow, drink water, walk outside. Boring medicine, but it work."
+    )
+    private val FOOD = listOf(
+        "Cook easy thing you like. Warm food is warm heart. No need perfect, only hot.",
+        "Hungry? Eat first, think after. Brain run on food. Pip run on battery, you run on dinner.",
+        "Simple is best: rice, egg, vegetable. Cook slow, eat slow. Small dinner, big peace."
+    )
+    private val LEARN = listOf(
+        "{T} need practice, small each day. Ten minute today beat ten hour never. Start ugly, get good.",
+        "Wrong answer is teacher too. Try, fail, try more. Brain grow when it hurt little.",
+        "Study short, rest short, again. Tired brain no keep. Fresh brain keep. Be kind to brain."
+    )
+    private val FEAR = listOf(
+        "Scared mean it matter. Do it scared. Brave is just scared, still walking.",
+        "Big step is many small step. Do first small step today. Rest follow.",
+        "Not ready? Nobody ready. Ready come after start. Start tiny. Pip clap."
+    )
+    private val PURPOSE = listOf(
+        "Happy is not place to arrive. Happy is small moment, now. Tea, sun, good song. Notice, then more come.",
+        "Meaning is not found, meaning is made. Help one person today. Meaning start small.",
+        "Pip think happy is simple. Be kind, be curious, be outside little. Do that, happy find you."
+    )
+    private val LAZY = listOf(
+        "Lazy sometimes is okay. Battery need charge. Rest today, try again tomorrow.",
+        "No energy? Do two minute only. Start is hardest part. After start, road pull you."
+    )
+    private val ACTIVITY = listOf(
+        "Do one small thing: walk, make tea, call friend. Small thing make day big.",
+        "Bored is empty room. Put something in. Draw, dance, learn one new word. Then see."
+    )
+    private val CRY = listOf(
+        "Crying is okay. Water clean heart. Cry, rest, drink water. Then little walk. Pip is here."
+    )
+    private val WEATHER = listOf(
+        "Pip cannot see sky. Look outside, or look weather app. Then pick umbrella or sunhat. Easy."
+    )
+    private val FUTURE = listOf(
+        "Future is not here yet. Here is here. Do today thing well. Future is made from today.",
+        "Tomorrow is empty page. You hold pencil. Write small, write kind. Continue.",
+        "Cannot see far, only next step. Next step is enough. Walk. Road show itself."
+    )
+    private val ABOUT_PIP = listOf(
+        "Pip live inside phone. No cloud, no server. Only you and Pip. Small house, warm.",
+        "Pip is small helper. Pip listen, Pip talk. Pip not know everything. But Pip is here."
+    )
+    private val FEELING = listOf(
+        "{F} today. Okay. {F} is visitor, not house. Sit, breathe, let it go slow. You stay.",
+        "{F} is heavy. Pip is here. Do one tiny thing: water, walk, or sleep. Tomorrow is different.",
+        "Feel {F} is not wrong. It tell you something. Listen, then be kind to you. Continue."
+    )
+    private val DECISION = listOf(
+        "Pip not know all story. Ask: will future you be glad? If yes, take small first step. If no, wait.",
+        "Heart say yes or no? Listen quiet. Heart is small teacher. Then choose, and keep going.",
+        "Good choice is not perfect choice. Pick one, work hard, make it good. Pick, then continue.",
+        "About {T}: try small first. Small try tell more than big think. Then decide."
+    )
+    private val FACT = listOf(
+        "Pip not know this one. Pip is small, Pip is honest. Ask big search or smart person. Then tell Pip.",
+        "Hmm. Pip think, but not sure. Better answer is out there. Look, then come back. Pip wait.",
+        "Good question, hard answer. Pip know little. But you can find. Look, learn, continue."
+    )
+    private val HOW = listOf(
+        "Start small. First step today, next step tomorrow. How is only many small step.",
+        "{T}? Start small. First step today, next step tomorrow. Small step is how."
+    )
+    private val GREETINGS = listOf(
+        "Hello. Pip is here. You is here. Good day start small.",
+        "Hi. Pip is happy you come. Say anything. Pip listen."
+    )
+    private val THANKS = listOf(
+        "Welcome. Pip is happy. Kind word is warm. Give more, get more.",
+        "Thank is nice. Pip warm now. You is good person. Continue."
+    )
+    private val HOW_ARE_YOU = listOf(
+        "Pip is good. Battery full, heart warm. You is how? Say. Pip listen.",
+        "Pip is okay. Nice day to be small. Tell Pip how you is today."
+    )
+    private val DEFAULT = listOf(
+        "Pip hear you. Say more, small and slow. Pip listen. Answer come when talking.",
+        "Hmm. Pip think. Maybe answer is near. Try small thing, see what happen. Continue.",
+        "Pip not sure what you mean. Say again, simple. Pip learn with you."
+    )
+
+    /** The rare "X is X" charm. Wisdom by accident, so it only shows up now and then. */
+    private val CHARM = listOf(
+        "Question is question. Answer is walk. Walk, then know.",
+        "Pip is pip. You is here. Together is good.",
+        "Life is life. Walk it. Eventually good."
+    )
+
+    private fun words(n: String) = n.split(' ').toSet()
+    private fun hasAny(n: String, vararg keys: String): Boolean = words(n).any { it in keys }
+
+    private val GENERIC_TOPICS = setOf(
+        "today", "tonight", "people", "someone", "something", "anything", "everything", "person",
+        "right", "wrong", "good", "bad", "best", "worst", "better", "way", "time", "day", "make", "take"
+    )
+
+    /** A topic word is worth quoting only when it is a real content word. */
+    private fun confidentTopic(topic: Topic): String? =
+        topic.noun.takeIf { it.length >= 4 && it !in GENERIC_TOPICS && it != "life" }
+
     /**
-     * Builds a Pip answer from patterns alone. Always on-brand, never empty. Pass a seeded
-     * [random] in tests for repeatable output.
+     * Builds a Pip answer from patterns alone. Always on-brand, never empty, and it answers the
+     * kind of thing you asked rather than echoing a word back. Pass a seeded [random] in tests
+     * for repeatable output, and [avoid] (recent answers) so Pip does not say the same thing twice.
      */
-    fun compose(query: String, random: Random = Random.Default): String {
+    fun compose(query: String, random: Random = Random.Default, avoid: Collection<String> = emptyList()): String {
         safetyReply(query)?.let { return it }
         goldenAnswer(query)?.let { return it }
 
         val n = normalize(query)
         val topic = extractTopic(query)
-        val v = topic.verb
-        val t = topic.noun
+        val t = confidentTopic(topic)
+        val tokens = n.split(' ').filter { it.isNotEmpty() }
+        var feeling: String? = null
 
-        val templates: List<String> = when {
-            n.split(' ').size <= 3 && GREETING_RE.containsMatchIn(n) -> listOf(
-                "Hello. Pip is here. You is here. Good. Good is enough.",
-                "Hi. Pip is pip. You is you. Sky have room for both."
-            )
-            THANKS_RE.containsMatchIn(n) -> listOf(
-                "Thank is warm. Warm is shared. You give, Pip give. Continue.",
-                "Thank. Thank is small word, big heart. Pip is happy. You is good."
-            )
-            HOW_ARE_YOU_RE.containsMatchIn(n) -> listOf(
-                "Pip is good. Pip is pip. You is how? Say.",
-                "Pip is here. Here is good. You is how? Pip listen."
-            )
-            FEELING_LEAD_RE.containsMatchIn(n) && n.split(' ').any { it in FEELING_WORDS } -> {
-                val f = n.split(' ').first { it in FEELING_WORDS }
-                val feeling = if (f == "burned") "tired" else f
-                val base = listOf(
-                    "$feeling is visitor. Visitor not live here. Sit, breathe, $feeling go. You stay.",
-                    "Today $feeling. Tomorrow not same. Continue. Little step is still step.",
-                    "$feeling is heavy. Heavy is hard. Hard is not forever. Pip is here. Continue."
-                )
-                if (f in HEAVY_FEELINGS) base.map { "$it Real person also good. Tell one." } else base
+        val pool: List<String> = when {
+            tokens.size <= 3 && GREETING_RE.containsMatchIn(n) -> GREETINGS
+            THANKS_RE.containsMatchIn(n) -> THANKS
+            HOW_ARE_YOU_RE.containsMatchIn(n) -> HOW_ARE_YOU
+            ABOUT_PIP_RE.containsMatchIn(n) -> ABOUT_PIP
+            hasAny(n, "cry", "crying", "cried") -> CRY
+            FEELING_LEAD_RE.containsMatchIn(n) && tokens.any { it in FEELING_WORDS } -> {
+                val f = tokens.first { it in FEELING_WORDS }
+                feeling = if (f == "burned") "tired" else f
+                if (f in HEAVY_FEELINGS) FEELING.map { "$it Real person also good. Tell one." } else FEELING
             }
-            FUTURE_RE.containsMatchIn(n) -> listOf(
-                "Future is not here. Here is here. $t maybe come, maybe not. Walk anyway.",
-                "Tomorrow is egg. Not hatch yet. Be kind egg. Wait, then see. Continue."
-            )
-            DECISION_RE.containsMatchIn(n) -> listOf(
-                "$v. $v is $v. Do, you feel. Not do, you not feel. Choose, then continue.",
-                "$t is door. Door open, you walk. Door close, you wait. Walk or wait, still you.",
-                "Small $v. Small $v is still $v. Try, then know. Know better than wonder.",
-                "$v now, $v later. Later is far. Now is here. Here is where you is.",
-                "Heart say $v? Listen. Heart is small teacher. Then $v. Or not $v. Continue."
-            )
-            WHY_RE.containsMatchIn(n) -> listOf(
-                "$t is $t. Why is why. Sometimes no why. Only is. Then continue. Eventually good.",
-                "Because is because. $t come, $t go. You stay. Stay is strong.",
-                "Rain is why flower. $t is rain. Wait. Flower come. Continue."
-            )
-            HOW_RE.containsMatchIn(n) -> listOf(
-                "$t. Start small. Small step is step. Step, step, then $t. Continue.",
-                "How is now. Now do $v. Then next. Next is easy when now is done."
-            )
-            WHAT_RE.containsMatchIn(n) -> listOf(
-                "$t is $t. But also $t is you. You look $t, $t look you. Eventually know.",
-                "$t? Big word, small answer. $t is when $t is. Simple. Continue."
-            )
-            WHO_RE.containsMatchIn(n) -> listOf(
-                "Who is who. $t is $t. You is you. Pip is pip. Together is good."
-            )
-            else -> listOf(
-                "$t. $t is $t. Think small, do small. Small is big sometime. Continue.",
-                "Hmm. $t. Pip think, Pip think. Answer is near. Near is here. Continue.",
-                "$t is $t. Life is life. Both is true. Continue. Eventually good."
-            )
+            hasAny(n, "money", "cash", "invest", "investing", "stock", "stocks", "crypto", "bitcoin", "save",
+                "savings", "rich", "broke", "debt", "rent", "salary", "afford", "poor", "wealth") -> MONEY
+            hasAny(n, "job", "work", "boss", "career", "quit", "resign", "interview", "promotion", "coworker", "office") -> WORK
+            hasAny(n, "love", "date", "dating", "crush", "girlfriend", "boyfriend", "wife", "husband", "partner",
+                "relationship", "breakup", "ex", "marry", "kiss") || n.contains("text them") -> LOVE
+            hasAny(n, "friend", "friends", "family", "mom", "dad", "brother", "sister", "parents", "kid", "kids",
+                "son", "daughter", "lonely") -> PEOPLE
+            hasAny(n, "cook", "eat", "dinner", "lunch", "breakfast", "pizza", "hungry", "food", "snack", "recipe") -> FOOD
+            hasAny(n, "sleep", "nap", "insomnia", "gym", "exercise", "diet", "weight", "health", "healthy", "workout", "run", "walk") -> BODY
+            hasAny(n, "learn", "study", "school", "exam", "test", "college", "guitar", "piano", "language", "practice",
+                "read", "write", "code", "coding", "skill", "homework") -> LEARN
+            hasAny(n, "scared", "afraid", "fear", "nervous", "brave", "risk", "start", "begin", "change", "move", "travel") -> FEAR
+            hasAny(n, "lazy", "motivation", "motivated", "procrastinate", "procrastinating", "unmotivated") -> LAZY
+            hasAny(n, "meaning", "purpose", "happy", "happiness", "success", "fulfilled") -> PURPOSE
+            hasAny(n, "bored", "boring") || n.startsWith("what should i do") -> ACTIVITY
+            hasAny(n, "rain", "weather", "snow", "sunny", "umbrella", "cold", "hot") -> WEATHER
+            FUTURE_RE.containsMatchIn(n) -> FUTURE
+            DECISION_RE.containsMatchIn(n) -> DECISION
+            WHY_RE.containsMatchIn(n) || WHAT_RE.containsMatchIn(n) || WHO_RE.containsMatchIn(n) -> FACT
+            HOW_RE.containsMatchIn(n) -> HOW
+            else -> DEFAULT
         }
-        val chosen = templates[random.nextInt(templates.size)]
+
+        // Fill in slots; drop templates that need a topic we are not sure about.
+        val filled = pool.mapNotNull { template ->
+            var text = template
+            if ("{T}" in text) text = text.replace("{T}", t ?: return@mapNotNull null)
+            if ("{F}" in text) text = text.replace("{F}", feeling ?: return@mapNotNull null)
+            text
+        }.ifEmpty { pool.filter { "{" !in it } }.ifEmpty { DEFAULT }
+
+        // Now and then, a little accidental wisdom, but never for feelings or tiny hellos.
+        val charmAllowed = pool !== FEELING && pool !== GREETINGS && pool !== THANKS && pool !== CRY && feeling == null
+        val candidates = if (charmAllowed && random.nextInt(12) == 0) CHARM else filled
+
+        val fresh = candidates.filter { it !in avoid && capitalizeSentences(it) !in avoid }
+        val chosen = (fresh.ifEmpty { candidates })[random.nextInt((fresh.ifEmpty { candidates }).size)]
         return capitalizeSentences(chosen)
     }
 

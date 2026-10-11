@@ -189,6 +189,14 @@ class PipelineController(
         }
     }
 
+    /** The last few things Pip said, so its instinct never says the same thing twice in a row. */
+    private val recentAnswers = java.util.ArrayDeque<String>()
+
+    private fun remember(answer: String) = synchronized(recentAnswers) {
+        recentAnswers.addLast(answer)
+        while (recentAnswers.size > 6) recentAnswers.removeFirst()
+    }
+
     private suspend fun decide(query: String): Pair<String, AnswerSource> {
         FracturedEnglish.safetyReply(query)?.let { return it to AnswerSource.SAFETY }
         FracturedEnglish.goldenAnswer(query)?.let { return it to AnswerSource.DESIGNED }
@@ -204,10 +212,12 @@ class PipelineController(
         val polished = raw?.let { FracturedEnglish.polish(it, query) }
         if (polished != null) {
             cache.put(query, polished)
+            remember(polished)
             return polished to AnswerSource.MODEL
         }
-        val instinct = FracturedEnglish.compose(query, random)
+        val instinct = FracturedEnglish.compose(query, random, synchronized(recentAnswers) { recentAnswers.toList() })
         cache.put(query, instinct)
+        remember(instinct)
         return instinct to AnswerSource.INSTINCT
     }
 

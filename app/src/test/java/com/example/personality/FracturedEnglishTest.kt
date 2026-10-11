@@ -101,21 +101,71 @@ class FracturedEnglishTest {
     }
 
     @Test
-    fun composedAnswerUsesTheTopicWord() {
-        val a = FracturedEnglish.compose("should I learn guitar", Random(1))
-        assertTrue(a, a.lowercase().contains("guitar") || a.lowercase().contains("learn"))
-        val b = FracturedEnglish.compose("what is money", Random(1))
-        assertTrue(b, b.lowercase().contains("money"))
+    fun composedAnswerCanQuoteTheTopicWhenItIsSure() {
+        val all = (0 until 40).map { FracturedEnglish.compose("should I learn guitar", Random(it)) }
+        assertTrue(all.any { it.lowercase().contains("guitar") })
+        assertTrue(all.all { it.isNotBlank() })
+    }
+
+    @Test
+    fun composedAnswersRespondToWhatWasAsked() {
+        fun any(q: String, vararg words: String): Boolean =
+            (0 until 40).any { seed ->
+                val a = FracturedEnglish.compose(q, Random(seed)).lowercase()
+                words.any { it in a }
+            }
+        assertTrue(any("how do I save more money", "save", "money"))
+        assertTrue(any("should I quit my job", "job", "work", "exit"))
+        assertTrue(any("what should I cook tonight", "cook", "food", "dinner", "eat", "hungry"))
+        assertTrue(any("I can't sleep", "sleep", "tired"))
+        assertTrue(any("do you live in the cloud", "phone", "cloud", "server", "pip"))
+        assertTrue(any("will it rain tomorrow", "outside", "weather", "umbrella"))
+    }
+
+    @Test
+    fun pipAdmitsWhenItDoesNotKnowAFact() {
+        val answers = (0 until 30).map { FracturedEnglish.compose("why do cats purr", Random(it)).lowercase() }
+        // Only an occasional charm line may differ; the rest are honest.
+        assertTrue(answers.count { "not know" in it || "not sure" in it || "know little" in it } >= 20)
+    }
+
+    @Test
+    fun tautologiesAreRareCharmNotTheDefault() {
+        var total = 0
+        var taut = 0
+        for (q in sampleQuestions) for (seed in 0 until 30) {
+            val a = FracturedEnglish.compose(q, Random(seed))
+            if (FracturedEnglish.goldenAnswer(q) != null) continue
+            total++
+            if (FracturedEnglish.tautologyCount(a) > 0) taut++
+        }
+        assertTrue("tautology share too high: $taut of $total", taut.toDouble() / total < 0.15)
+    }
+
+    @Test
+    fun noAnswerIsEverMoreThanOneTautology() {
+        for (q in sampleQuestions) for (seed in 0 until 30) {
+            val a = FracturedEnglish.compose(q, Random(seed))
+            assertTrue(a, FracturedEnglish.tautologyCount(a) <= 1 || FracturedEnglish.goldenAnswer(q) != null)
+        }
+    }
+
+    @Test
+    fun pipDoesNotRepeatItselfBackToBack() {
+        val recent = ArrayList<String>()
+        repeat(4) { i ->
+            val a = FracturedEnglish.compose("should I quit my job", Random(i), recent)
+            assertFalse("repeated: $a", a in recent)
+            recent += a
+        }
     }
 
     @Test
     fun composerFitsTheBrokenEnglishStyle() {
-        // Short fragments, lots of "is", no long words.
         val a = FracturedEnglish.compose("why is the ocean salty", Random(3))
         val sentences = a.split(". ").filter { it.isNotBlank() }
-        assertTrue(a, sentences.size >= 3)
-        assertTrue(a, sentences.all { it.split(" ").size <= 12 })
-        assertTrue(a, a.contains(" is "))
+        assertTrue(a, sentences.size >= 2)
+        assertTrue(a, sentences.all { it.split(" ").size <= 20 })
     }
 
     @Test
@@ -169,6 +219,12 @@ class FracturedEnglishTest {
     }
 
     @Test
+    fun polishRejectsReplyStuffedWithTautologies() {
+        assertNull(FracturedEnglish.polish("Life is life. Love is love. Work is work.", "tell me something"))
+        assertNotNull(FracturedEnglish.polish("Rest is good. Sleep early. Tomorrow is new.", "I have a test"))
+    }
+
+    @Test
     fun polishKeepsReplyShort() {
         val long = (1..40).joinToString(" ") { "Sentence number $it is here." }
         val out = FracturedEnglish.polish(long, "x")
@@ -198,5 +254,6 @@ class FracturedEnglishTest {
             assertTrue(ex.answer, FracturedEnglish.isOnBrand(ex.answer) || ex.answer == "Pip is pip.")
         }
         assertTrue(FracturedEnglish.FEW_SHOT.size in 4..8)
+        assertTrue(FracturedEnglish.FEW_SHOT.all { FracturedEnglish.tautologyCount(it.answer) <= 1 })
     }
 }

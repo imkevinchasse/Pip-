@@ -4,7 +4,10 @@ import android.content.Context
 import android.os.Bundle
 import android.speech.tts.TextToSpeech
 import android.speech.tts.UtteranceProgressListener
+import com.example.core.SpeechPacing
 import com.example.core.Voice
+import com.example.core.VoiceInfo
+import com.example.core.VoicePick
 import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
@@ -26,10 +29,11 @@ import kotlinx.coroutines.withTimeoutOrNull
 data class VoiceProfile(val id: String, val name: String, val icon: String, val pitch: Float, val rate: Float) {
     companion object {
         val ALL = listOf(
-            VoiceProfile("pip", "Pip", "🐾", 1.55f, 0.92f),
-            VoiceProfile("squeak", "Squeaky", "🎈", 2.0f, 1.05f),
-            VoiceProfile("soft", "Soft", "🧸", 1.25f, 0.85f),
-            VoiceProfile("natural", "Natural", "👤", 1.0f, 1.0f)
+            // Moderate pitch: pushing it high is what makes any engine sound synthetic.
+            VoiceProfile("pip", "Pip", "🐾", 1.2f, 0.9f),
+            VoiceProfile("squeak", "Squeaky", "🎈", 1.7f, 1.0f),
+            VoiceProfile("soft", "Soft", "🧸", 1.05f, 0.85f),
+            VoiceProfile("natural", "Natural", "👤", 1.0f, 0.95f)
         )
     }
 }
@@ -108,15 +112,25 @@ class SystemVoice(
         if (english.isNotEmpty() && offline.isEmpty()) {
             return "Pip only found online voices. Install an offline English voice in Settings > Text-to-speech."
         }
-        val chosen = offline.firstOrNull { it.locale == Locale.US } ?: offline.firstOrNull()
+        val byName = english.associateBy { it.name }
+        val info = english.map {
+            VoiceInfo(it.name, it.locale.language, it.locale.country, it.quality, it.latency, it.isNetworkConnectionRequired)
+        }
+        val best = VoicePick.best(info)
+        val chosen = best?.let { byName[it.name] } ?: offline.firstOrNull()
         if (chosen != null) {
             try {
                 engine.voice = chosen
             } catch (_: Throwable) {
             }
         }
+        voiceQualityIsMediocre = VoicePick.isMediocre(best)
         return null
     }
+
+    /** True when the nicest offline voice on this phone is only so-so (a better one can be installed). */
+    @Volatile var voiceQualityIsMediocre: Boolean = false
+        private set
 
     fun applyProfile(profile: VoiceProfile) {
         pitch = profile.pitch
@@ -127,10 +141,10 @@ class SystemVoice(
         val engine = tts
         if (!ready || engine == null || text.isBlank()) return
 
-        val id = UUID.randomUUID().toString()
+        val sentences = SpeechPacing.sentences(text).ifEmpty { listOf(text) }
+        val id = UUID.randomUUID().toString() // the last sentence carries the id we wait on
         // If the engine never reports back, do not hang the conversation forever.
-        val timeoutMs = (text.length * 140L).coerceIn(4_000L, 40_000L)
-        withTimeoutOrNull(timeoutMs) {
+        withTimeoutOrNull(SpeechPacing.timeoutMs(text)) {
             suspendCancellableCoroutine<Unit> { continuation ->
                 waiting[id] = continuation
                 continuation.invokeOnCancellation {
@@ -143,7 +157,16 @@ class SystemVoice(
                 engine.setPitch(pitch.coerceIn(0.5f, 2.5f))
                 engine.setSpeechRate(rate.coerceIn(0.5f, 2.0f))
                 val params = Bundle().apply { putFloat(TextToSpeech.Engine.KEY_PARAM_VOLUME, 1.0f) }
-                val queued = engine.speak(text, TextToSpeech.QUEUE_FLUSH, params, id)
+                // One sentence at a time with a short breath between them: Pip's short lines land
+                // better with room around them than read out as one flat stream.
+                var queued = TextToSpeech.SUCCESS
+                sentences.forEachIndexed { index, sentence ->
+                    val last = index == sentences.lastIndex
+                    val mode = if (index == 0) TextToSpeech.QUEUE_FLUSH else TextToSpeech.QUEUE_ADD
+                    val result = engine.speak(sentence, mode, params, if (last) id else "$id-$index")
+                    if (result != TextToSpeech.SUCCESS) queued = result
+                    if (!last) engine.playSilentUtterance(SpeechPacing.pauseAfterMs(sentence), TextToSpeech.QUEUE_ADD, "$id-gap-$index")
+                }
                 if (queued != TextToSpeech.SUCCESS) finish(id)
             }
         }
