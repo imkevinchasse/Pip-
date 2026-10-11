@@ -1,0 +1,324 @@
+=== onnx-community/whisper-tiny.en
+  added_tokens.json                                     0.0 MB
+  config.json                                           0.0 MB
+  generation_config.json                                0.0 MB
+  merges.txt                                            0.5 MB
+  normalizer.json                                       0.1 MB
+  onnx/decoder_model.onnx                             118.4 MB
+  onnx/decoder_model_bnb4.onnx                         86.0 MB
+  onnx/decoder_model_fp16.onnx                         59.4 MB
+  onnx/decoder_model_int8.onnx                         30.5 MB
+  onnx/decoder_model_merged.onnx                      118.6 MB
+  onnx/decoder_model_merged_bnb4.onnx                  86.1 MB
+  onnx/decoder_model_merged_fp16.onnx                  59.6 MB
+  onnx/decoder_model_merged_int8.onnx                  30.7 MB
+  onnx/decoder_model_merged_q4.onnx                    86.7 MB
+  onnx/decoder_model_merged_quantized.onnx             30.7 MB
+  onnx/decoder_model_merged_uint8.onnx                 30.7 MB
+  onnx/decoder_model_q4.onnx                           86.6 MB
+  onnx/decoder_model_quantized.onnx                    30.5 MB
+  onnx/decoder_model_uint8.onnx                        30.5 MB
+  onnx/decoder_with_past_model.onnx                   113.6 MB
+  onnx/decoder_with_past_model_bnb4.onnx               85.3 MB
+  onnx/decoder_with_past_model_fp16.onnx               57.0 MB
+  onnx/decoder_with_past_model_int8.onnx               29.2 MB
+  onnx/decoder_with_past_model_q4.onnx                 85.8 MB
+  onnx/decoder_with_past_model_quantized.onnx          29.2 MB
+  onnx/decoder_with_past_model_uint8.onnx              29.2 MB
+  onnx/encoder_model.onnx                              32.9 MB
+  onnx/encoder_model_bnb4.onnx                          8.6 MB
+  onnx/encoder_model_fp16.onnx                         16.5 MB
+  onnx/encoder_model_int8.onnx                         10.1 MB
+  onnx/encoder_model_q4.onnx                            9.0 MB
+  onnx/encoder_model_quantized.onnx                    10.1 MB
+  onnx/encoder_model_uint8.onnx                        10.1 MB
+  preprocessor_config.json                              0.0 MB
+  quantize_config.json                                  0.0 MB
+  special_tokens_map.json                               0.0 MB
+  tokenizer.json                                        2.4 MB
+  tokenizer_config.json                                 0.3 MB
+  vocab.json                                            1.0 MB
+=== onnx-community/whisper-base.en
+  added_tokens.json                                     0.0 MB
+  config.json                                           0.0 MB
+  generation_config.json                                0.0 MB
+  merges.txt                                            0.5 MB
+  normalizer.json                                       0.1 MB
+  onnx/decoder_model.onnx                             208.3 MB
+  onnx/decoder_model_bnb4.onnx                        121.8 MB
+  onnx/decoder_model_fp16.onnx                        104.4 MB
+  onnx/decoder_model_int8.onnx                         53.3 MB
+  onnx/decoder_model_merged.onnx                      208.5 MB
+  onnx/decoder_model_merged_bnb4.onnx                 122.0 MB
+  onnx/decoder_model_merged_fp16.onnx                 104.7 MB
+  onnx/decoder_model_merged_int8.onnx                  53.7 MB
+  onnx/decoder_model_merged_q4.onnx                   123.6 MB
+  onnx/decoder_model_merged_quantized.onnx             53.7 MB
+  onnx/decoder_model_merged_uint8.onnx                 53.7 MB
+  onnx/decoder_model_q4.onnx                          123.4 MB
+  onnx/decoder_model_quantized.onnx                    53.3 MB
+  onnx/decoder_model_uint8.onnx                        53.3 MB
+  onnx/decoder_with_past_model.onnx                   195.6 MB
+  onnx/decoder_with_past_model_bnb4.onnx              120.0 MB
+  onnx/decoder_with_past_model_fp16.onnx               98.0 MB
+  onnx/decoder_with_past_model_int8.onnx               50.1 MB
+  onnx/decoder_with_past_model_q4.onnx                121.3 MB
+  onnx/decoder_with_past_model_quantized.onnx          50.1 MB
+  onnx/decoder_with_past_model_uint8.onnx              50.1 MB
+  onnx/encoder_model.onnx                              82.5 MB
+  onnx/encoder_model_bnb4.onnx                         17.6 MB
+  onnx/encoder_model_fp16.onnx                         41.3 MB
+  onnx/encoder_model_int8.onnx                         23.2 MB
+  onnx/encoder_model_q4.onnx                           18.8 MB
+  onnx/encoder_model_quantized.onnx                    23.2 MB
+  onnx/encoder_model_uint8.onnx                        23.2 MB
+  preprocessor_config.json                              0.0 MB
+  quantize_config.json                                  0.0 MB
+  special_tokens_map.json                               0.0 MB
+  tokenizer.json                                        2.4 MB
+  tokenizer_config.json                                 0.3 MB
+  vocab.json                                            1.0 MB
+=== onnx-community/whisper-small.en
+  added_tokens.json                                     0.0 MB
+  config.json                                           0.0 MB
+  generation_config.json                                0.0 MB
+  merges.txt                                            0.5 MB
+  normalizer.json                                       0.1 MB
+  onnx/decoder_model.onnx                             614.9 MB
+  onnx/decoder_model_bnb4.onnx                        225.6 MB
+  onnx/decoder_model_fp16.onnx                        307.9 MB
+  onnx/decoder_model_int8.onnx                        156.0 MB
+  onnx/decoder_model_merged.onnx                      615.3 MB
+  onnx/decoder_model_merged_bnb4.onnx                 226.1 MB
+  onnx/decoder_model_merged_fp16.onnx                 308.6 MB
+  onnx/decoder_model_merged_int8.onnx                 156.8 MB
+  onnx/decoder_model_merged_q4.onnx                   233.1 MB
+  onnx/decoder_model_merged_quantized.onnx            156.8 MB
+  onnx/decoder_model_merged_uint8.onnx                156.8 MB
+  onnx/decoder_model_q4.onnx                          232.7 MB
+  onnx/decoder_model_quantized.onnx                   156.0 MB
+  onnx/decoder_model_uint8.onnx                       156.0 MB
+  onnx/decoder_with_past_model.onnx                   558.1 MB
+  onnx/decoder_with_past_model_bnb4.onnx              217.5 MB
+  onnx/decoder_with_past_model_fp16.onnx              279.5 MB
+  onnx/decoder_with_past_model_int8.onnx              141.7 MB
+  onnx/decoder_with_past_model_q4.onnx                223.7 MB
+  onnx/decoder_with_past_model_quantized.onnx         141.7 MB
+  onnx/decoder_with_past_model_uint8.onnx             141.7 MB
+  onnx/encoder_model.onnx                             352.8 MB
+  onnx/encoder_model_bnb4.onnx                         60.9 MB
+  onnx/encoder_model_fp16.onnx                        176.6 MB
+  onnx/encoder_model_int8.onnx                         92.3 MB
+  onnx/encoder_model_q4.onnx                           66.2 MB
+  onnx/encoder_model_quantized.onnx                    92.3 MB
+  onnx/encoder_model_uint8.onnx                        92.3 MB
+  preprocessor_config.json                              0.0 MB
+  quantize_config.json                                  0.0 MB
+  special_tokens_map.json                               0.0 MB
+  tokenizer.json                                        2.4 MB
+  tokenizer_config.json                                 0.3 MB
+  vocab.json                                            1.0 MB
+=== onnx-community/Qwen2.5-0.5B-Instruct
+  added_tokens.json                                     0.0 MB
+  config.json                                           0.0 MB
+  generation_config.json                                0.0 MB
+  merges.txt                                            1.7 MB
+  onnx/model.onnx                                    1993.8 MB
+  onnx/model_bnb4.onnx                                763.8 MB
+  onnx/model_fp16.onnx                                997.4 MB
+  onnx/model_int8.onnx                                512.1 MB
+  onnx/model_q4.onnx                                  786.2 MB
+  onnx/model_q4f16.onnx                               483.0 MB
+  onnx/model_quantized.onnx                           512.1 MB
+  onnx/model_uint8.onnx                               512.1 MB
+  quantize_config.json                                  0.0 MB
+  special_tokens_map.json                               0.0 MB
+  tokenizer.json                                        7.0 MB
+  tokenizer_config.json                                 0.0 MB
+  vocab.json                                            2.8 MB
+=== onnx-community/SmolLM2-360M-Instruct
+   {'error': 'Invalid username or password.'}
+=== HuggingFaceTB/SmolLM2-360M-Instruct
+  all_results.json                                      0.0 MB
+  config.json                                           0.0 MB
+  eval_results.json                                     0.0 MB
+  generation_config.json                                0.0 MB
+  merges.txt                                            0.5 MB
+  onnx/model.onnx                                    1449.6 MB
+  onnx/model_bnb4.onnx                                368.3 MB
+  onnx/model_fp16.onnx                                724.9 MB
+  onnx/model_int8.onnx                                364.6 MB
+  onnx/model_q4.onnx                                  387.9 MB
+  onnx/model_q4f16.onnx                               272.7 MB
+  onnx/model_quantized.onnx                           364.6 MB
+  onnx/model_uint8.onnx                               364.6 MB
+  special_tokens_map.json                               0.0 MB
+  tokenizer.json                                        2.1 MB
+  tokenizer_config.json                                 0.0 MB
+  train_results.json                                    0.0 MB
+  trainer_state.json                                    0.1 MB
+  vocab.json                                            0.8 MB
+
+=== whisper-base.en preprocessor_config.json keys
+   chunk_length = 30
+   feature_extractor_type = WhisperFeatureExtractor
+   feature_size = 80
+   hop_length = 160
+   n_fft = 400
+   n_samples = 480000
+   nb_max_frames = 3000
+   padding_side = right
+   padding_value = 0.0
+   processor_class = WhisperProcessor
+   return_attention_mask = False
+   sampling_rate = 16000
+=== whisper-base.en generation_config.json
+{
+  "alignment_heads": [
+    [
+      3,
+      3
+    ],
+    [
+      4,
+      7
+    ],
+    [
+      5,
+      1
+    ],
+    [
+      5,
+      5
+    ],
+    [
+      5,
+      7
+    ]
+  ],
+  "begin_suppress_tokens": [
+    220,
+    50256
+  ],
+  "bos_token_id": 50257,
+  "decoder_start_token_id": 50257,
+  "eos_token_id": 50256,
+  "forced_decoder_ids": [
+    [
+      1,
+      50362
+    ]
+  ],
+  "is_multilingual": false,
+  "max_initial_timestamp_index": 50,
+  "max_length": 448,
+  "no_timestamps_token_id": 50362,
+  "pad_token_id": 50256,
+  "prev_sot_token_id": 50360,
+  "return_timestamps": false,
+  "suppress_tokens": [
+    1,
+    2,
+    7,
+    8,
+    9,
+    10,
+    14,
+    25,
+    26,
+    27,
+    28,
+    29,
+    31,
+    58,
+    59,
+    60,
+    61,
+    62,
+    63,
+    90,
+    91,
+    92,
+    93,
+    357,
+    366,
+    438,
+    532,
+    685,
+    705,
+    796,
+    930,
+    1058,
+    1220,
+    1267,
+    1279,
+    1303,
+    1343,
+    1377,
+    1391,
+    1635,
+    1782,
+    1875,
+    2162,
+    2361,
+    2488,
+    3467,
+    4008,
+    4211,
+    4600,
+    4808,
+    5299,
+    5855,
+    6329,
+    7203,
+    9609,
+    9959,
+    10563,
+    10786,
+    11420,
+    11709,
+    11907,
+    13163,
+    13697,
+    13700,
+    14808,
+    15306,
+    16410,
+    16791,
+    17992,
+    19203,
+    19510,
+    20724,
+    22305,
+    22935,
+    27007,
+    30109,
+    30420,
+    33409,
+    34949,
+    40283,
+    40493,
+    40549,
+    47282,
+    49146,
+    50257,
+    50357,
+    50358,
+    50359,
+    50360,
+    50361
+  ],
+  "transfor
+=== whisper-base.en config.json (selected)
+   d_model = 512
+   encoder_layers = 6
+   decoder_layers = 6
+   decoder_attention_heads = 8
+   encoder_attention_heads = 8
+   vocab_size = 51864
+   num_mel_bins = 80
+   max_source_positions = 1500
+   max_target_positions = 448
+   decoder_start_token_id = 50257
+   eos_token_id = 50256
+   bos_token_id = 50257
