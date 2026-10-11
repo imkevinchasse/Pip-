@@ -1,0 +1,14 @@
+name: Pip explore (scout model files)
+on:
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  explore:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: bash lab/explore.sh > /tmp/explore.txt 2>&1 || true
+      - run: lab/publish.sh explore.txt /tmp/explore.txt
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
